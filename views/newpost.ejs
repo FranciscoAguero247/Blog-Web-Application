@@ -1,0 +1,33 @@
+<%- include("partials/header.ejs") %>
+    <video autoplay muted loop id="background-video">
+      <source src="/public/images/3 color Neon frame Video Background - lyric video Frame for Edits - Background video effects.mp4" type="video/mp4">
+    </video>
+    <style>
+      @media (max-width: 768px) {
+          #background-video{
+              display: none;
+          }
+          body{
+              background: url(/public/images/peakpx.jpg);
+              background-size: cover;
+          }
+          
+      }
+    </style>
+    <% if (locals.post) { %>
+      <p>
+       Your post is: <%= post %>
+      </p>
+      <%}%>
+    <form action="/submit" method="POST">
+      <input type="text" name="blogPost" placeholder="Type in a post" />
+      <div class="dropdown">
+        <button onclick="show_hide()" class="dropbtn" class="button-19" class="mobile" role="button"><i>Post</i></button>
+        <select name="Blogs" value="blogs" class="dropdown-content">
+          <option name="Car">Car</a>
+          <option name="Star_Wars">Star Wars</a>
+          <option name="Batman">Batman</a>
+        </select>
+      </div>
+    </form>
+<%- include("partials/footer.ejs") %>
