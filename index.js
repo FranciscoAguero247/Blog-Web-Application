@@ -1,5 +1,6 @@
 import express from "express";
 import bodyParser from "body-parser";
+import ejs from "ejs";
 
 const app = express();
 const port = 3000;
@@ -8,7 +9,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use('/public', express.static('public'));
 
 app.set("view engine", "ejs");
-app.engine("ejs", require("ejs").__express);
+app.engine("ejs", ejs.__express);
 app.set("views", path.join(__dirname, "./views"));
 
 app.get("/", (req, res) => {
