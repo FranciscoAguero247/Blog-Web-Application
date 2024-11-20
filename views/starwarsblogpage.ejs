@@ -13,17 +13,17 @@
       }
   }
 </style>
-<div class="card text-center" style="width: 18rem;">
+<% if (locals.post) { %>
+<div class="card text-center" style="width: 18rem;">  
   <div class="card-body">
-    <h5 class="card-title">Your post is:</h5>
-      <% if (locals.post) { %>
+    <h5 class="card-title">Your post is:</h5> 
       <p id="edit" class="card-text"> <%= post %></p>
-      <%} else {%>
-      <p id="edit" class="card-text"></p>
-      <% } %>
       <button type="submit" id="edit-button" class="btn btn-primary">Edit Post</button>
       <button type="submit" id="end-editing" class="btn btn-primary">Done</button>
       <button type="submit" onclick="deletePost()" class="btn btn-primary">Delete Post</button>
+      <%} else {%>
+      <p id="edit" class="card-text"></p>
+      <% } %>
 
     <script>
       let userPost;

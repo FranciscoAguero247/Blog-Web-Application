@@ -19,6 +19,7 @@
        Your post is: <%= post %>
       </p>
       <%}%>
+    <div class="position-absolute top-50 start-50 translate-middle">
     <form action="/submit" method="POST">
       <input type="text" name="blogPost" placeholder="Type in a post" />
       <div class="dropdown">
@@ -30,4 +31,5 @@
         </select>
       </div>
     </form>
+  </div>
 <%- include("partials/footer.ejs") %>
