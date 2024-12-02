@@ -447,7 +447,7 @@ bottom: 0;
 z-index: -1;
 }
 
-@media (min-width: 320px) and (max-width: 480px) {
+@media (max-width: 480px) {
   #background-video{
     display: none;
     }
@@ -469,7 +469,7 @@ z-index: -1;
     padding: 1%;
   }
   .blog-links {
-    margin-top: 110%;
+    margin-top: 210%;
     margin-bottom: 5%;
     background-color: rgba(1, 0, 0, 0.802);
   }
@@ -477,7 +477,7 @@ z-index: -1;
     margin-top: 1%;
   }
   main{
-    margin: 150%;
+    margin: 250%;
   }
   footer p {
     margin-left: 40%;
