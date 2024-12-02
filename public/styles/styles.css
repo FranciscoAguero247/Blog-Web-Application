@@ -272,6 +272,15 @@ h3{
 .maininfo{
     text-align: center;
 }
+.welcome-container{
+  font-size: 1.25rem;
+  font-weight: 300;
+}
+.new-post-btn{
+  position: absolute;
+  top: 150px;
+  left: 309px;
+}
 footer{
     color: red;
 }
@@ -299,7 +308,6 @@ footer{
   padding: 6px 0;
   text-decoration: none;
 }
-
 .nav-links li a::before {
   content: '';
   position: absolute;
@@ -437,4 +445,124 @@ right: 0;
 top: 0;
 bottom: 0;
 z-index: -1;
+}
+
+@media (min-width: 320px) and (max-width: 480px) {
+  #background-video{
+    display: none;
+    }
+  body{
+      background: url(/public/images/Neon\ oval\ phone\ wallpaper.jpg);
+      background-size: cover;
+  }
+  .welcome-container{
+    padding: 5%;
+  }
+  h1{
+    padding: 2%;
+  }
+  p{
+    color: lightblue;
+  }
+  .top-head-container{
+    position: relative;
+    padding: 1%;
+  }
+  .blog-links {
+    margin-top: 110%;
+    margin-bottom: 5%;
+    background-color: rgba(1, 0, 0, 0.802);
+  }
+  .container{
+    margin-top: 1%;
+  }
+  main{
+    margin: 150%;
+  }
+  footer p {
+    margin-left: 40%;
+  }
+  footer ul{
+    margin-left: 17%;
+  }
+}
+@media (min-width: 480px) and (max-width: 768px){
+  #background-video{
+    display: none;
+    }
+  body{
+      background: url(/public/images/Neon\ oval\ phone\ wallpaper.jpg);
+      background-size: cover;
+  }
+  .welcome-container{
+    padding: 5%;
+  }
+  h1{
+    padding: 2%;
+  }
+  p{
+    color: lightblue;
+  }
+  .top-head-container{
+    position: relative;
+    padding: 1%;
+  }
+  .blog-links {
+    margin-top: 50%;
+    margin-bottom: 15%;
+    background-color: rgba(1, 0, 0, 0.802);
+  }
+  .container{
+    margin-top: 1%;
+  }
+  main{
+    margin: 100%;
+  }
+  footer p {
+    margin-left: 40%;
+  }
+  footer ul{
+    margin-left: 17%;
+  }
+}
+@media (min-width: 768px) and (max-width: 1024px){
+  #background-video{
+    display: none;
+    }
+  body{
+      background: url(/public/images/Neon\ oval\ phone\ wallpaper.jpg);
+      background-size: cover;
+  }
+  .welcome-container{
+    margin-top: 5%;
+    padding-top: 5%;
+  }
+  h1{
+    padding: 5%;
+    margin-bottom: 15%;
+  }
+  p{
+    color: lightblue;
+  }
+  .blog-links {
+    margin-top: 40%;
+    background-color: rgba(1, 0, 0, 0.802);
+  }
+  .container header{
+    margin:0;
+  }
+  main{
+    margin: 85%;
+  }
+  footer p{
+    margin-left: 5%;
+  }
+  footer ul{
+    justify-content: right;
+  }
+}
+@media (min-width: 1024px) and (max-width: 1200px){
+  footer ul{
+    justify-content: right;
+  }
 }
