@@ -3,52 +3,174 @@
   <source src="/public/images/Batman SLow Glowing Logo Live Wallpaper.mp4" type="video/mp4">
 </video>
 <style>
-  @media (max-width: 768px) {
-      #background-video{
-          display: none;
-      }
-      body{
-          background: url(/public/images/batman\ logo.jpg);
-          background-size: cover;
-      }
+.center{
+  text-align: center;
+}
+.center-div-block{
+  width: 1300px;
+  position: relative;
+  margin: 0 auto;
+  clear: left;
+  height: auto;
+  z-index: 0;
+  text-align: center;
+  margin-bottom: 40%;
+}
+.post-div-block{
+  width: 1300px;
+  position: relative;
+  margin: 0 auto;
+  clear: left;
+  height: auto;
+  z-index: 0;
+}
+.card-text{
+  color: white;
+}
+.internal-blog-post{
+  width: 1300px;
+  background: blue;
+  position: relative;
+  margin: 0 auto;
+  clear: left;
+  height: auto;
+  z-index: 0;
+  margin: 50px 0;
+  border-radius: 50px;
+  background-color: black;
+  border: 3px solid gray;
+  padding: 20px;
+}
+.plus-button{
+  background-color: transparent;
+  height: 35px;
+  width: 45px;
+  color: gray;
+  font-size: 1.5em;
+  box-shadow: 0 6px 6px rgba(0, 0, 0, 0.6);
+}
+.minus-button{
+  background-color: transparent;
+  height: 35px;
+  width: 45px;
+  color: gray;
+  font-size: 1.5em;
+  box-shadow: 0 6px 6px rgba(0, 0, 0, 0.6);
+} 
+.bottom-right{
+  position: absolute;
+  right: 45px;
+  bottom: 10;
+}
+.external-blog-post{
+  width: 1300px;
+  background: green;
+  position: relative;
+  margin: 0 auto;
+  clear: left;
+  height: auto;
+  z-index: 0;
+}
+.submit-form{
+  position: relative;
+  right: 33%;
+  border-radius: 4px;
+}
+.input-form{
+  position:relative;
+  font-size: 1.5em;
+  background: linear-gradient(21deg, #10abff, #1beabd);
+  padding: 3px;
+  display: inline-block;
+  border-radius: 9999em;
+
+*:not(span) {
+  position: relative;
+  display: inherit;
+  border-radius: inherit;
+  margin: 0;
+  border: none;
+  outline: none;
+  padding: 0 .325em;
+  z-index: 1; 
+  
+  &:focus + span {
+    opacity: 1;
+    transform: scale(1);
   }
+}
+}
+@media (max-width: 768px) {
+#background-video{
+    display: none;
+}
+body{
+    background: url(/public/images/batman\ logo.jpg);
+    background-size: cover;
+}
+}
 </style>
-<% if (locals.post) { %>
-<div class="card text-center" style="width: 18rem;">
-  <div class="card-body">
-    <h5 class="card-title">Your post is:</h5>
-      <p id="edit" class="card-text"> <%= post %></p>
-      <button type="submit" id="edit-button" class="btn btn-primary">Edit Post</button>
-      <button type="submit" id="end-editing" class="btn btn-primary">Done</button>
-      <button type="submit" onclick="deletePost()" class="btn btn-primary">Delete Post</button>
-      <%} else {%>
-      <p id="edit" class="card-text"></p>
-      <div class="new-post-btn iframe">
-        <button class="dropbtn" class="button-19" role="button">
-          New Post
-        </button>
-      </div>
+<div class="center-div-block" id="container">
+  <div class="internal-blog-post" id="originalDiv">
+    <% if (locals.blogPost ) { %> 
+      <h5 >Your post is:</h5>
+        <div id="internal-post">
+          <p id="edit" class="card-text" id="post-value"> <%= blogPost %></p>
+        </div>
+
+        <div class="bottom-right btn-group">
+        <div>
+          <button id="cloneButton" class="fa-solid fa-plus plus-button btn btn-secondary clone-btn" role="button"></button>
+          
+          <button type="submit" id="edit-button" class="btn btn-primary">Edit Post</button>
+          <button type="submit" id="end-editing" class="btn btn-primary">Done</button>
+        
+          <button id="remove-button" class="fa-solid fa-minus minus-button btn btn-secondary" role="button"></button>
+        </div>
+        </div>
+
+      <% } else if(locals.post) { %>
+        <div class="external-blog-post">
+        <h5>Your post is:</h5>
+          <p> <%= post %></p>
+        </div>
+        <% } else{ %>  
+        <p><b>Post to blog</b></p>
+        <div class="post-div-block">
+          <form action="/IsubmitB" method="POST" id="form-div">
+            <input class="input-form" type="text button" id="name" name="IndividualBlogPost" placeholder="Type in a post" />
+            <button class="button-19" class="mobile" role="button" id="submit-button"><i>Post</i></button>
+          </form>
+        </div>
       <% } %>
-    <script>
-      let userPost;
-      const paragraph = document.getElementById("edit");
-      const edit_button = document.getElementById("edit-button");
-      const end_button = document.getElementById("end-editing");
-
-      edit_button.addEventListener("click", function() {
-        paragraph.contentEditable = true;
-        paragraph.style.background = "rgba(255, 255, 255, 0.548)";
-      } );
-
-      end_button.addEventListener("click", function() {
-        paragraph.contentEditable = false;
-        paragraph.style.background = "transparent";
-      });
-
-      function deletePost(){
-        document.getElementById("edit").innerHTML = "";
-      }
-    </script>
+      </div>
   </div>
 </div>
+<script>
+  $('#cloneButton').on('click',()=>{
+    let newDiv = ("<div class='post-div-block'><form action='/IsubmitB' method='POST' id='form-div'><input class='input-form' type='text button' name='IndividualBlogPost' placeholder='Type in a post' /><button class='button-19' class='mobile' role='button'><i>Post</i></button></form></div>");
+    $('#container').append(newDiv);
+  });
+ 
+  $('#remove-button').click(function(){
+    $('.internal-blog-post').remove();
+    let newDiv = ("<div class='post-div-block'><form action='/IsubmitB' method='POST' id='form-div'><input class='input-form' type='text button' name='IndividualBlogPost' placeholder='Type in a post' /><button class='button-19' class='mobile' role='button'><i>Post</i></button></form></div>");
+    $('#container').append(newDiv);
+  })
+
+  const paragraph = document.getElementById("edit");
+  const edit_button = document.getElementById("edit-button");
+  const end_button = document.getElementById("end-editing");
+
+  edit_button.addEventListener("click", function() {
+    paragraph.contentEditable = true;
+    paragraph.style.background = "rgba(255, 255, 255, 0.548)";
+  } );
+
+  end_button.addEventListener("click", function() {
+    paragraph.contentEditable = false;
+    paragraph.style.background = "transparent";
+  });
+
+</script>
 <%- include("partials/footer.ejs") %>

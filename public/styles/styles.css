@@ -136,10 +136,7 @@ button:hover {
 button:active {
   box-shadow: 1px 1px 3px ;
 }
-form {
-  display: block;
-  margin-bottom: 15%;
-}
+
 .card {
   position: absolute;
   width: 300px;
@@ -157,9 +154,6 @@ form {
 .card-body{
   background: rgba(255, 255, 255, 0.548);
   border-radius: 15%;
-}
-.card-text{
-  color: black;
 }
 
 @media (max-width: 767.98px) {
@@ -351,29 +345,6 @@ footer{
   transform-origin: left;
 }
 
-.input {
-  position:relative;
-  font-size: 1.5em;
-  background: linear-gradient(21deg, #10abff, #1beabd);
-  padding: 3px;
-  display: inline-block;
-  border-radius: 9999em;
-
-*:not(span) {
-  position: relative;
-  display: inherit;
-  border-radius: inherit;
-  margin: 0;
-  border: none;
-  outline: none;
-  padding: 0 .325em;
-  z-index: 1; 
-  
-  &:focus + span {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
 span {	
   transform: scale(.993, .94); 
   transition: transform .5s, opacity .25s;
@@ -395,7 +366,7 @@ span {
     -3px 3px 30px #10abff;
 }
 
-}
+
 
 html {
 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
