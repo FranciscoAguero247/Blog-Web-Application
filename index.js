@@ -50,6 +50,11 @@ app.post("/IsubmitC", (req, res) => {
   res.render("carsblogpage.ejs", { blogPost: IndividualBlogPost });
 });
 
+app.post("/IsubmitS", (req, res) => {
+  const IndividualBlogPost = req.body["IndividualBlogPost"];
+  res.render("starwarsblogpage.ejs", { blogPost: IndividualBlogPost });
+});
+
 app.get("/carsblogpage", (req, res) => {
   res.render("carsblogpage.ejs");
 });
