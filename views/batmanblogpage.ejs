@@ -64,12 +64,17 @@
 }
 .external-blog-post{
   width: 1300px;
-  background: green;
+  background: blue;
   position: relative;
   margin: 0 auto;
   clear: left;
   height: auto;
   z-index: 0;
+  margin: 50px 0;
+  border-radius: 50px;
+  background-color: black;
+  border: 3px solid gray;
+  padding: 20px;
 }
 .submit-form{
   position: relative;
@@ -130,10 +135,21 @@ body{
         </div>
 
       <% } else if(locals.post) { %>
-        <div class="external-blog-post">
-        <h5>Your post is:</h5>
-          <p> <%= post %></p>
+        <h5 >Your post is:</h5>
+        <div id="external-post">
+          <p id="edit" class="card-text" id="post-value"> <%= post %></p>
+       
+        <div class="bottom-right btn-group">
+        <div>
+          <button id="cloneButton" class="fa-solid fa-plus plus-button btn btn-secondary clone-btn" role="button"></button>
+          
+          <button type="submit" id="edit-button" class="btn btn-primary">Edit Post</button>
+          <button type="submit" id="end-editing" class="btn btn-primary">Done</button>
+        
+          <button id="remove-button" class="fa-solid fa-minus minus-button btn btn-secondary" role="button"></button>
         </div>
+        </div>
+
         <% } else{ %>  
         <p><b>Post to blog</b></p>
         <div class="post-div-block">
