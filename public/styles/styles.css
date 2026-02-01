@@ -50,9 +50,12 @@ LAYOUT AND CONTAINERS
 }
 
 .bottom-head-container {
-    position: fixed;
-    width: 100%;
-    bottom: 0;
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
 }
 
 .welcome-container {
@@ -99,6 +102,10 @@ a:link { color: gray; }
 a:visited { color: rgb(149, 149, 149); }
 a:hover { color: green; }
 a:active { color: rgb(222, 222, 222); }
+
+main{
+  padding-bottom: 100px;
+}
 
 /*
 
