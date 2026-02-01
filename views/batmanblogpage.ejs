@@ -55,7 +55,8 @@
       </div>
   </div>
 </div>
-<script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script >
   $('#cloneButton').on('click',()=>{
     let newDiv = ("<div class='post-div-block'><form action='/IsubmitB' method='POST' id='form-div'><input class='input-form' type='text button' name='IndividualBlogPost' placeholder='Type in a post' /><button class='button-19' class='mobile' role='button'><i>Post</i></button></form></div>");
     $('#container').append(newDiv);

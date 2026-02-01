@@ -60,6 +60,19 @@ LAYOUT AND CONTAINERS
     font-weight: 300;
 }
 
+/* HOME PAGE CARD GRID */
+.welcome-container .row {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 50px;
+}
+
+.welcome-container h2 {
+    margin-bottom: 30px;
+    text-shadow: 0 0 10px var(--neon-blue);
+}
+
 .maininfo {
     text-align: center;
 }
@@ -166,6 +179,37 @@ a:active { color: rgb(222, 222, 222); }
   margin-bottom: 40%;
 }
 
+/* HIGH-TECH INPUT FORM STYLING */
+.input-form {
+    position: relative;
+    font-size: 1.5em;
+    background: linear-gradient(21deg, #10abff, #1beabd);
+    padding: 3px;
+    display: inline-block;
+    border-radius: 9999em;
+    border: none;
+    outline: none;
+    color: white; 
+}
+
+/* Selector for elements inside or related to the input form */
+.input-form input {
+    position: relative;
+    display: inherit;
+    border-radius: inherit;
+    margin: 0;
+    border: none;
+    outline: none;
+    padding: 0 .325em;
+    z-index: 1;
+}
+
+.input-form:focus-within {
+    box-shadow: 0 0 15px var(--neon-cyan);
+    transition: 0.3s;
+}
+
+
 /* 
 
   THEME-SPECIFIC SKINS 
@@ -206,16 +250,7 @@ a:active { color: rgb(222, 222, 222); }
 .center{
   text-align: center;
 }
-.center-div-block{
-  width: 1300px;
-  position: relative;
-  margin: 0 auto;
-  clear: left;
-  height: auto;
-  z-index: 0;
-  text-align: center;
-  margin-bottom: 40%;
-}
+
 .post-div-block{
   width: 1300px;
   position: relative;
@@ -276,39 +311,38 @@ a:active { color: rgb(222, 222, 222); }
   right: 33%;
   border-radius: 4px;
 }
-.input-form{
-  position:relative;
-  font-size: 1.5em;
-  background: linear-gradient(21deg, #10abff, #1beabd);
-  padding: 3px;
-  display: inline-block;
-  border-radius: 9999em;
+/* HIGH-TECH INPUT FORM STYLING */
+.input-form {
+    position: relative;
+    font-size: 1.5em;
+    background: linear-gradient(21deg, #10abff, #1beabd);
+    padding: 3px;
+    display: inline-block;
+    border-radius: 9999em;
+    border: none;
+    outline: none;
+    color: white; /* Ensure text is readable against the neon */
+}
 
-*:not(span) {
-  position: relative;
-  display: inherit;
-  border-radius: inherit;
-  margin: 0;
-  border: none;
-  outline: none;
-  padding: 0 .325em;
-  z-index: 1; 
-  
-  &:focus + span {
-    opacity: 1;
-    transform: scale(1);
-  }
+/* Selector for elements inside or related to the input form */
+.input-form input {
+    position: relative;
+    display: inherit;
+    border-radius: inherit;
+    margin: 0;
+    border: none;
+    outline: none;
+    padding: 0 .325em;
+    z-index: 1;
 }
+
+/* This replaces the &:focus logic */
+.input-form:focus-within {
+    box-shadow: 0 0 15px var(--neon-cyan);
+    transition: 0.3s;
 }
-@media (max-width: 768px) {
-#background-video{
-    display: none;
-}
-body{
-    background: url(/public/images/batman\ logo.jpg);
-    background-size: cover;
-}
-}
+
+
 
 /*
 
@@ -318,16 +352,6 @@ body{
 
 .center{
   text-align: center;
-}
-.center-div-block{
-  width: 1300px;
-  position: relative;
-  margin: 0 auto;
-  clear: left;
-  height: auto;
-  z-index: 0;
-  text-align: center;
-  margin-bottom: 40%;
 }
 .post-div-block{
   width: 1300px;
@@ -374,32 +398,8 @@ body{
   padding: 3px;
   display: inline-block;
   border-radius: 9999em;
+}
 
-*:not(span) {
-  position: relative;
-  display: inherit;
-  border-radius: inherit;
-  margin: 0;
-  border: none;
-  outline: none;
-  padding: 0 .325em;
-  z-index: 1; 
-  
-  &:focus + span {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-}
-    @media (max-width: 768px) {
-        #background-video{
-            display: none;
-        }
-        body{
-            background: url(/public/images/Need\ For\ Speed\ Bmw\ M3\ Gtr\ Wallpaper.jpeg);
-            background-size: cover;
-        }
-    }
 
 /*
 
@@ -411,16 +411,7 @@ body{
 .center{
   text-align: center;
 }
-.center-div-block{
-  width: 1300px;
-  position: relative;
-  margin: 0 auto;
-  clear: left;
-  height: auto;
-  z-index: 0;
-  text-align: center;
-  margin-bottom: 40%;
-}
+
 .post-div-block{
   width: 1300px;
   position: relative;
@@ -454,7 +445,6 @@ body{
   right: 45px;
   bottom: 10;
 }
-
 .submit-form{
   position: relative;
   right: 33%;
@@ -467,32 +457,7 @@ body{
   padding: 3px;
   display: inline-block;
   border-radius: 9999em;
-
-*:not(span) {
-  position: relative;
-  display: inherit;
-  border-radius: inherit;
-  margin: 0;
-  border: none;
-  outline: none;
-  padding: 0 .325em;
-  z-index: 1; 
-  
-  &:focus + span {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
-}
-  @media (max-width: 768px) {
-      #background-video{
-          display: none;
-      }
-      body{
-          background: url(/public/images/wp8277550-kamino-wallpapers.png);
-          background-size: cover;
-      }
-  }
 
 /*
 
@@ -617,13 +582,32 @@ input {
     footer ul { justify-content: right; }
 }
 
- @media (max-width: 768px) {
-    #background-video{
-        display: none;
-    }
-    body{
-        background: url(/public/images/peakpx.jpg);
-        background-size: cover;
-    }
-    
+@media (max-width: 768px) {
+  #background-video{
+    display: none;
+  }
+  /* Default mobile background (Home Page) */
+  body {
+    background: url(/public/images/peakpx.jpg) no-repeat center center fixed;
+    background-size: cover;
+  }
+
+  /* Batman Page Mobile Background */
+  .batman-theme body {
+    background: url(/public/images/batman\ logo.jpg) no-repeat center center fixed;
+    background-size: cover;
+  }
+
+  /* Car Page Mobile Background */
+  .car-theme body {
+    background: url(/public/images/Need\ For\ Speed\ Bmw\ M3\ Gtr\ Wallpaper.jpeg) no-repeat center center fixed;
+    background-size: cover;
+  }
+
+  /* Star Wars Page Mobile Background */
+  .sw-theme body {
+    background: url(/public/images/wp8277550-kamino-wallpapers.png) no-repeat center center fixed;
+    background-size: cover;
+  }
+  
 }
