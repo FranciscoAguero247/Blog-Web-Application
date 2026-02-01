@@ -269,6 +269,43 @@ main{
     transition: 0.3s;
 }
 
+/* FLOATING BACK BUTTON */
+.back-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: white !important;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    z-index: 1100; /* Above everything else */
+    transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateX(-5px); /* Moves slightly left to indicate "back" */
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+/* Mobile tweak to ensure it doesn't overlap header links */
+@media (max-width: 768px) {
+    .back-btn {
+        top: 10px;
+        left: 10px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+}
+
 
 /* 
 
