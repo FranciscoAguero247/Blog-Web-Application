@@ -363,6 +363,35 @@ main{
     box-shadow: 0 0 20px rgba(52, 239, 223, 0.6);
 }
 
+/* --- THEME-SPECIFIC BACK BUTTONS --- */
+
+/* Batman Back Button (White/Silver Glow) */
+.batman-theme .back-btn {
+    border-color: rgba(255, 255, 255, 0.4);
+}
+.batman-theme .back-btn:hover {
+    border-color: #fff;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+/* Car Back Button (Racing Red Glow) */
+.car-theme .back-btn {
+    border-color: rgba(230, 57, 70, 0.4);
+}
+.car-theme .back-btn:hover {
+    border-color: #e63946;
+    box-shadow: 0 0 15px rgba(230, 57, 70, 0.6);
+}
+
+/* Star Wars Back Button (Lightsaber Cyan Glow) */
+.sw-theme .back-btn {
+    border-color: rgba(52, 239, 223, 0.4);
+}
+.sw-theme .back-btn:hover {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 15px rgba(52, 239, 223, 0.6);
+}
+
 /*
 
   BATMAN BLOG PAGE
