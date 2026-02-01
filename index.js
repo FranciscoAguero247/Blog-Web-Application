@@ -26,6 +26,10 @@ app.get("/newpost", (req, res) => {
   res.render("newpost.ejs", { theme : "newpost"});
 });
 
+app.get("/about", (req, res) => {
+  res.render("about.ejs", { theme: "newpost" });
+});
+
 app.post("/submit", (req, res) => {
   const post = req.body["blogPost"];
   const selectedBlog = req.body.Blogs;

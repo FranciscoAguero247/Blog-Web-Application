@@ -745,6 +745,52 @@ input {
     border-radius: 30px;
 }
 
+/* ABOUT PAGE SPECIFICS */
+.profile-circle {
+    width: 150px;
+    height: 150px;
+    background: linear-gradient(45deg, var(--neon-blue), var(--neon-cyan));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px var(--neon-blue);
+    margin-bottom: 20px;
+}
+
+.about-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    height: 100%;
+    transition: 0.3s;
+}
+
+.about-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-5px);
+}
+
+.text-cyan {
+    color: var(--neon-cyan) !important;
+}
+
+/* Professional Brand Styling for Movie Motion G */
+strong {
+    color: #ffffff;
+    font-weight: 800;
+    /* This creates the "Neon Movie" effect */
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.4), 
+                 0 0 15px var(--neon-blue, #00d2ff); 
+    letter-spacing: 0.5px;
+    transition: text-shadow 0.3s ease;
+}
+
+strong:hover {
+    /* Subtle "pulse" effect when hovering over the brand name */
+    text-shadow: 0 0 12px rgba(255, 255, 255, 0.6), 
+                 0 0 25px var(--neon-cyan, #34efdf);
+}
 
 /* FOOTER MATCHING HEADER STYLE */
 .footer-container {
