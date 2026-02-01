@@ -104,7 +104,7 @@ a:hover { color: green; }
 a:active { color: rgb(222, 222, 222); }
 
 main{
-  padding-bottom: 100px;
+  padding-bottom: 120px;
 }
 
 /*
@@ -564,6 +564,39 @@ input {
     border: 2px solid green;
     border-radius: 30px;
 }
+
+
+/* FOOTER MATCHING HEADER STYLE */
+.footer-container {
+    position: fixed;
+    bottom: 20px; /* Gives it a floating look like the header */
+    width: 100%;
+    z-index: 1000;
+    padding: 0 15px;
+}
+
+.nav-links-style {
+    background: #01020c89; /* Same as header */
+    padding: 15px 25px;
+    border-radius: 12px;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.footer-links li a {
+    color: #ffffff !important;
+    font-size: 18px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.footer-links li a:hover {
+    color: var(--neon-cyan) !important;
+}
+
 
 /*
 
