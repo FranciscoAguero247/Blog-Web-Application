@@ -692,6 +692,42 @@ main{
     transform: scale(1.1) rotate(5deg);
 }
 
+/* UNIFORM ICON CONTAINER */
+.icon-shield {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-size: 2rem;
+}
+
+/* Base Neon Glow for all Icons */
+.icon-shield i, .icon-shield svg {
+    filter: drop-shadow(0 0 10px currentColor);
+    transition: all 0.3s ease;
+}
+
+/* Hover State: The "Power Up" Effect */
+.col-md-3:hover .icon-shield {
+    transform: translateY(-10px) scale(1.1);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+}
+
+/* Individual Theme Glows */
+.batman-icon { color: #ffffff; }
+.sw-icon     { color: var(--neon-cyan); }
+.car-icon    { color: #e63946; }
+.tech-icon   { color: #bc13fe; }
+
 
 /*
 
