@@ -366,7 +366,37 @@ span {
     -3px 3px 30px #10abff;
 }
 
+.hype-btn {
+  background: transparent;
+  border: 2px solid #34efdf;
+  color: #34efdf;
+  padding: 8px 16px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: bold;
+}
 
+.hype-btn:hover {
+  background: #34efdf;
+  color: #000;
+  box-shadow: 0 0 15px #34efdf;
+}
+
+/* The "Pop" animation when clicked */
+.hype-btn:active {
+  transform: scale(0.9);
+}
+
+.hype-count {
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
 
 html {
 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";

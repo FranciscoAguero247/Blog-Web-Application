@@ -76,6 +76,15 @@
   border: 3px solid gray;
   padding: 20px;
 }
+
+.internal-blog-post, .external-blog-post {
+  background: rgba(0, 0, 0, 0.6) !important; 
+  backdrop-filter: blur(12px); 
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+}
+
 .submit-form{
   position: relative;
   right: 33%;
@@ -120,7 +129,7 @@ body{
     <% if (locals.blogPost ) { %> 
       <h5 >Your post is:</h5>
         <div id="internal-post">
-          <p id="edit" class="card-text" id="post-value"> <%= blogPost %></p>
+          <p id="edit" class="card-text"> <%= blogPost %></p>
         </div>
 
         <div class="bottom-right btn-group">
@@ -152,11 +161,17 @@ body{
 
         <% } else{ %>  
         <p><b>Post to blog</b></p>
-        <div class="post-div-block">
-          <form action="/IsubmitB" method="POST" id="form-div">
-            <input class="input-form" type="text button" id="name" name="IndividualBlogPost" placeholder="Type in a post" />
-            <button class="button-19" class="mobile" role="button" id="submit-button"><i>Post</i></button>
-          </form>
+          <div class="post-div-block">
+            <form action="/IsubmitB" method="POST" id="form-div">
+              <input class="input-form" type="text button" id="name" name="IndividualBlogPost" placeholder="Type in a post" />
+              <button class="button-19" class="mobile" role="button" id="submit-button"><i>Post</i></button>
+            </form>
+            <div class="hype-container">
+            <button class="hype-btn" onclick="triggerHype(this)">
+              <i class="fa-solid fa-fire"></i> Hype 
+              <span class="hype-count">0</span>
+            </button>
+          </div>
         </div>
       <% } %>
       </div>
@@ -188,5 +203,16 @@ body{
     paragraph.style.background = "transparent";
   });
 
+  function triggerHype(btn) {
+  const countSpan = btn.querySelector('.hype-count');
+  let currentCount = parseInt(countSpan.innerText);
+  
+  countSpan.innerText = currentCount + 1;
+  
+  btn.style.boxShadow = "0 0 30px #34efdf";
+  setTimeout(() => {
+    btn.style.boxShadow = "0 0 15px #34efdf";
+  }, 200);
+  }
 </script>
 <%- include("partials/footer.ejs") %>
