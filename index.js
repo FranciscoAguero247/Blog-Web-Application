@@ -56,15 +56,15 @@ app.post("/IsubmitS", (req, res) => {
 });
 
 app.get("/carsblogpage", (req, res) => {
-  res.render("carsblogpage.ejs");
+  res.render("carsblogpage.ejs", {theme: "car-theme"});
 });
 
 app.get("/starwarsblogpage", (req, res) => {
-  res.render("starwarsblogpage.ejs");
+  res.render("starwarsblogpage.ejs", {theme: "sw-theme"});
 });
 
 app.get("/batmanblogpage", (req, res) => {
-  res.render("batmanblogpage.ejs");
+  res.render("batmanblogpage.ejs", {theme: "batman-theme"});
 });
 
 app.listen(port, () => {

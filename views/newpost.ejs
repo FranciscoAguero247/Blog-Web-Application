@@ -2,18 +2,6 @@
     <video autoplay muted loop id="background-video">
       <source src="/public/images/3 color Neon frame Video Background - lyric video Frame for Edits - Background video effects.mp4" type="video/mp4">
     </video>
-    <style>
-      @media (max-width: 768px) {
-          #background-video{
-              display: none;
-          }
-          body{
-              background: url(/public/images/peakpx.jpg);
-              background-size: cover;
-          }
-          
-      }
-    </style>
     <% if (locals.post) { %>
       <p>
        Your post is: <%= post %>
