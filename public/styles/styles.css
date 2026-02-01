@@ -646,6 +646,53 @@ main{
   border-radius: 9999em;
 }
 
+/* --- TECH THEME SKIN --- */
+:root {
+    --tech-purple: #bc13fe;
+    --tech-glow: #8b00ff;
+}
+
+/* Tech Blog Post Style */
+.tech-theme .internal-blog-post, 
+.tech-theme .external-blog-post {
+  border: 2px solid var(--tech-purple);
+  background-color: rgba(15, 0, 30, 0.7) !important; /* Deep dark purple tint */
+  box-shadow: 0 0 20px rgba(188, 19, 254, 0.3);
+}
+
+/* Tech Button Style */
+.tech-btn:hover {
+    background: var(--tech-purple) !important;
+    border-color: #fff !important;
+    color: #fff !important;
+    box-shadow: 0 0 20px var(--tech-glow);
+}
+
+/* Back Button for Tech */
+.tech-theme .back-btn {
+    border-color: rgba(188, 19, 254, 0.4);
+}
+.tech-theme .back-btn:hover {
+    border-color: var(--tech-purple);
+    box-shadow: 0 0 15px var(--tech-purple);
+}
+
+/* SVG ICON STYLING */
+.tech-icon-svg {
+    color: var(--tech-purple); /* Electric Purple */
+    filter: drop-shadow(0 0 8px var(--tech-glow));
+    transition: all 0.3s ease;
+    margin-bottom: 15px;
+}
+
+/* Interaction: Pulse when the card or button is hovered */
+.tech-btn:hover .tech-icon-svg {
+    color: #ffffff;
+    filter: drop-shadow(0 0 12px #ffffff);
+    transform: scale(1.1) rotate(5deg);
+}
+
+
 /*
 
   BUTTONS AND INTERACTIVE ELEMENTS
@@ -875,5 +922,10 @@ strong:hover {
     background: url(/public/images/wp8277550-kamino-wallpapers.png) no-repeat center center fixed;
     background-size: cover;
   }
+
+   .tech-theme body {
+        background: url(/public/images/tech-mobile-bg.jpg) no-repeat center center fixed;
+        background-size: cover;
+    }
   
 }
