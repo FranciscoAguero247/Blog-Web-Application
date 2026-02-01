@@ -392,6 +392,41 @@ main{
     box-shadow: 0 0 15px rgba(52, 239, 223, 0.6);
 }
 
+/* NEW POST PAGE UNIFORM STYLE */
+.newpost-theme .post-container {
+    max-width: 800px;
+    margin: 100px auto;
+    padding: 40px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(16, 171, 255, 0.3); /* Neon Blue border */
+    border-radius: 20px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.newpost-theme h1 {
+    color: var(--neon-blue);
+    text-shadow: 0 0 10px rgba(16, 171, 255, 0.5);
+    margin-bottom: 30px;
+}
+
+/* Stylizing the Form within the New Post page */
+.newpost-theme .form-control {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.newpost-theme .form-control:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px var(--neon-cyan);
+    color: white;
+}
+
+
 /*
 
   BATMAN BLOG PAGE
@@ -630,7 +665,7 @@ main{
     padding: 13px 16px;
     text-transform: uppercase;
     transition: filter .2s;
-    width: 10%;
+    width: 100%;
 }
 
 .button-19:active { border-width: 4px 0 0; background: none; }

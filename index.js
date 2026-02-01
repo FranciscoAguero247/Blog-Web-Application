@@ -23,7 +23,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/newpost", (req, res) => {
-  res.render("newpost.ejs");
+  res.render("newpost.ejs", { theme : "newpost"});
 });
 
 app.post("/submit", (req, res) => {

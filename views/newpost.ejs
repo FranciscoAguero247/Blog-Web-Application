@@ -1,23 +1,47 @@
 <%- include("partials/header.ejs") %>
-    <video autoplay muted loop id="background-video">
-      <source src="/public/images/3 color Neon frame Video Background - lyric video Frame for Edits - Background video effects.mp4" type="video/mp4">
-    </video>
-    <% if (locals.post) { %>
-      <p>
-       Your post is: <%= post %>
-      </p>
-      <%}%>
-    <div class="position-absolute top-50 start-50 translate-middle">
-    <form action="/submit" method="POST">
-      <input type="text" name="blogPost" placeholder="Type in a post" />
-      <div class="dropdown">
-        <button onclick="show_hide()" class="dropbtn" class="button-19" class="mobile" role="button"><i>Post</i></button>
-        <select name="Blogs" value="blogs" class="dropdown-content">
-          <option name="Car">Car</a>
-          <option name="Star_Wars">Star Wars</a>
-          <option name="Batman">Batman</a>
-        </select>
-      </div>
-    </form>
-  </div>
+
+<video autoplay muted loop id="background-video">
+  <source src="/public/images/3 color Neon frame Video Background - lyric video Frame for Edits - Background video effects.mp4" type="video/mp4">
+</video>
+
+<a href="/" class="back-btn">
+    <i class="fa-solid fa-house"></i> Exit to Home
+</a>
+
+<main class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="post-container">
+        
+        <% if (locals.post) { %>
+            <div class="alert alert-info bg-dark text-cyan border-info">
+                <strong>Success:</strong> Your post "<%= post %>" has been broadcasted.
+            </div>
+        <% } %>
+
+        <h1>Create Quick Post</h1>
+        <p class="text-body-secondary">Select a channel and broadcast your message.</p>
+        
+        <form action="/submit" method="POST">
+            <div class="mb-4">
+                <label class="form-label text-white">Choose Community</label>
+                <select name="Blogs" class="form-control bg-dark text-white border-secondary">
+                    <option value="Car">Car Community</option>
+                    <option value="Star_Wars">Star Wars Galaxy</option>
+                    <option value="Batman">Gotham Streets</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-white">Your Content</label>
+                <textarea class="form-control" name="blogPost" rows="4" placeholder="What's happening?"></textarea>
+            </div>
+            
+            <div class="d-grid">
+                <button type="submit" class="button-19">
+                    <i class="fa-solid fa-paper-plane"></i> Publish Post
+                </button>
+            </div>
+        </form>
+    </div>
+</main>
+
 <%- include("partials/footer.ejs") %>
