@@ -30,10 +30,6 @@ app.get("/about", (req, res) => {
   res.render("about.ejs", { theme: "newpost" });
 });
 
-app.get("/techblogpage", (req, res) => {
-  res.render("techblogpage.ejs", { theme: "tech" });
-});
-
 app.post("/submit", (req, res) => {
   const post = req.body["blogPost"];
   const selectedBlog = req.body.Blogs;
@@ -52,23 +48,19 @@ app.post("/submit", (req, res) => {
 });
 
 app.post("/IsubmitB", (req, res) => {
-  const IndividualBlogPost = req.body["IndividualBlogPost"];
-  res.render("batmanblogpage.ejs", { blogPost: IndividualBlogPost });
+  res.render("batmanblogpage.ejs", { blogPost: req.body["IndividualBlogPost"], theme: "batman" });
 });
 
 app.post("/IsubmitC", (req, res) => {
-  const IndividualBlogPost = req.body["IndividualBlogPost"];
-  res.render("carsblogpage.ejs", { blogPost: IndividualBlogPost });
+  res.render("carsblogpage.ejs", { blogPost: req.body["IndividualBlogPost"], theme: "car" });
 });
 
 app.post("/IsubmitS", (req, res) => {
-  const IndividualBlogPost = req.body["IndividualBlogPost"];
-  res.render("starwarsblogpage.ejs", { blogPost: IndividualBlogPost });
+  res.render("starwarsblogpage.ejs", { blogPost: req.body["IndividualBlogPost"], theme: "sw" });
 });
 
 app.post("/IsubmitT", (req, res) => {
-  const IndividualBlogPost = req.body["IndividualBlogPost"];
-  res.render("techblogpage.ejs", { blogPost: IndividualBlogPost });
+  res.render("techblogpage.ejs", { blogPost: req.body["IndividualBlogPost"], theme: "tech" });
 });
 
 app.get("/carsblogpage", (req, res) => {

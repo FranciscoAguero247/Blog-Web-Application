@@ -1,12 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
-
-  // 1. Determine the Theme Route
-  let routeSuffix = 'B'; // Default to Batman
+  let routeSuffix = 'B';
   if (document.body.classList.contains('car-theme')) routeSuffix = 'C';
   if (document.body.classList.contains('sw-theme')) routeSuffix = 'S';
   if (document.body.classList.contains('tech-theme')) routeSuffix = 'T';
 
-  // 2. Optimized Cloning & Removal
   const createFormHtml = () => {
     return `
       <div class='post-div-block'>
@@ -17,16 +14,17 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>`;
   };
 
-  $('#cloneButton').on('click', () => {
+  $(document).on('click', '#cloneButton', function() {
     $('#container').append(createFormHtml());
   });
 
-  $('#remove-button').on('click', () => {
+ $(document).on('click', '#remove-button', function() {
     $('.internal-blog-post').remove();
-    $('#container').append(createFormHtml());
-  });
+    if($('#container').children().length === 0) {
+        $('#container').append(createFormHtml());
+    }
+});
 
-  // 3. Inline Editing Logic (Safe Check)
   const paragraph = document.getElementById("edit");
   const edit_button = document.getElementById("edit-button");
   const end_button = document.getElementById("end-editing");
@@ -34,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (paragraph && edit_button && end_button) {
     edit_button.addEventListener("click", () => {
       paragraph.contentEditable = true;
-      paragraph.style.background = "rgba(255, 255, 255, 0.2)"; // Adjusted for Glassmorphism
+      paragraph.style.background = "rgba(255, 255, 255, 0.2)"; 
       paragraph.focus();
     });
 
@@ -44,14 +42,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 4. Hype Button Animation
   window.triggerHype = function(btn) {
     const countSpan = btn.querySelector('.hype-count');
     if (countSpan) {
       let currentCount = parseInt(countSpan.innerText) || 0;
       countSpan.innerText = currentCount + 1;
       
-      // Theme-aware glow
+  
       const glowColor = getComputedStyle(btn).color || "#34efdf";
       btn.style.boxShadow = `0 0 30px ${glowColor}`;
       setTimeout(() => {
