@@ -46,6 +46,9 @@ app.post("/submit", (req, res) => {
   if(selectedBlog === "Star Wars"){
     res.render("starwarsblogpage.ejs", { post: post });
   }
+  if(selectedBlog === "Tech"){
+    res.render("techblogpage.ejs", { post: post });
+  }
 });
 
 app.post("/IsubmitB", (req, res) => {
@@ -63,6 +66,11 @@ app.post("/IsubmitS", (req, res) => {
   res.render("starwarsblogpage.ejs", { blogPost: IndividualBlogPost });
 });
 
+app.post("/IsubmitT", (req, res) => {
+  const IndividualBlogPost = req.body["IndividualBlogPost"];
+  res.render("techblogpage.ejs", { blogPost: IndividualBlogPost });
+});
+
 app.get("/carsblogpage", (req, res) => {
   res.render("carsblogpage.ejs", {theme: "car"});
 });
@@ -73,6 +81,10 @@ app.get("/starwarsblogpage", (req, res) => {
 
 app.get("/batmanblogpage", (req, res) => {
   res.render("batmanblogpage.ejs", {theme: "batman"});
+});
+
+app.get("/techblogpage", (req, res) => {
+  res.render("techblogpage.ejs", {theme: "tech"});
 });
 
 app.listen(port, () => {

@@ -748,7 +748,6 @@ main{
     padding: 13px 16px;
     text-transform: uppercase;
     transition: filter .2s;
-    width: 100%;
 }
 
 .button-19:active { border-width: 4px 0 0; background: none; }

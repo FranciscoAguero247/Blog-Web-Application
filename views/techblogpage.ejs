@@ -1,0 +1,42 @@
+<%- include("partials/header.ejs") %>
+
+<a href="/" class="back-btn">
+    <i class="fa-solid fa-chevron-left"></i> Back to Hub
+</a>
+
+<video autoplay muted loop id="background-video">
+  <source src="/images/tech vid background.mp4" type="video/mp4">
+</video>
+
+<div class="center-div-block tech-theme" id="container">
+  <div class="internal-blog-post" id="originalDiv">
+    
+    <% if (locals.blogPost || locals.post) { %> 
+      <h5>Your post is:</h5>
+      <div id="internal-post">
+          <p id="edit" class="card-text"><%= locals.blogPost || locals.post %></p>
+      </div>
+
+      <div class="bottom-right btn-group">
+          <div class="d-flex gap-2">
+            <button id="cloneButton" class="fa-solid fa-plus plus-button btn btn-secondary" title="Add Post"></button>
+            <button id="edit-button" class="btn btn-primary">Edit</button>
+            <button id="end-editing" class="btn btn-success">Done</button>
+            <button id="remove-button" class="fa-solid fa-minus minus-button btn btn-secondary" title="Remove All"></button>
+          </div>
+      </div>
+
+    <% } else { %>  
+      <p><b>Post to the Nexus</b></p>
+      <div class="post-div-block">
+        <form action="/IsubmitT" method="POST" id="form-div">
+          <input class="input-form" type="text" name="IndividualBlogPost" placeholder="Connect to the network..." required />
+          <button class="button-19 mobile" id="submit-button"><i>Post</i></button>
+        </form>
+      </div>
+    <% } %>
+
+  </div>
+</div>
+
+<%- include("partials/footer.ejs") %>
