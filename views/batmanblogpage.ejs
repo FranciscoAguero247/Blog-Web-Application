@@ -58,43 +58,4 @@
       </div>
   </div>
 </div>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script >
-  $('#cloneButton').on('click',()=>{
-    let newDiv = ("<div class='post-div-block'><form action='/IsubmitB' method='POST' id='form-div'><input class='input-form' type='text button' name='IndividualBlogPost' placeholder='Type in a post' /><button class='button-19' class='mobile' role='button'><i>Post</i></button></form></div>");
-    $('#container').append(newDiv);
-  });
- 
-  $('#remove-button').click(function(){
-    $('.internal-blog-post').remove();
-    let newDiv = ("<div class='post-div-block'><form action='/IsubmitB' method='POST' id='form-div'><input class='input-form' type='text button' name='IndividualBlogPost' placeholder='Type in a post' /><button class='button-19' class='mobile' role='button'><i>Post</i></button></form></div>");
-    $('#container').append(newDiv);
-  })
-
-  const paragraph = document.getElementById("edit");
-  const edit_button = document.getElementById("edit-button");
-  const end_button = document.getElementById("end-editing");
-
-  edit_button.addEventListener("click", function() {
-    paragraph.contentEditable = true;
-    paragraph.style.background = "rgba(255, 255, 255, 0.548)";
-  } );
-
-  end_button.addEventListener("click", function() {
-    paragraph.contentEditable = false;
-    paragraph.style.background = "transparent";
-  });
-
-  function triggerHype(btn) {
-  const countSpan = btn.querySelector('.hype-count');
-  let currentCount = parseInt(countSpan.innerText);
-  
-  countSpan.innerText = currentCount + 1;
-  
-  btn.style.boxShadow = "0 0 30px #34efdf";
-  setTimeout(() => {
-    btn.style.boxShadow = "0 0 15px #34efdf";
-  }, 200);
-  }
-</script>
 <%- include("partials/footer.ejs") %>
