@@ -5,8 +5,48 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import PG from "pg";
 import dotenv from "dotenv";
+import session from "express-session";
+import bcrypt from "bcryptjs";
 
 dotenv.config();
+
+const DEFAULT_GROUPS = [
+  {
+    name: "Cars",
+    slug: "cars",
+    description: "Talk builds, restorations, motorsport, and the machines worth obsessing over.",
+    legacyCategory: "Car",
+  },
+  {
+    name: "Star Wars",
+    slug: "star-wars",
+    description: "Share theories, scenes, lore, and everything happening across the galaxy.",
+    legacyCategory: "Star Wars",
+  },
+  {
+    name: "Batman",
+    slug: "batman",
+    description: "For Gotham stories, detective arcs, villains, and the wider Bat-family.",
+    legacyCategory: "Batman",
+  },
+  {
+    name: "Technology",
+    slug: "tech",
+    description: "Discuss software, hardware, AI, and the tools shaping the future.",
+    legacyCategory: "Tech",
+  },
+];
+
+const legacyCategoryBySlug = new Map(
+  DEFAULT_GROUPS.map((group) => [group.slug, group.legacyCategory])
+);
+
+const fallbackThemeBySlug = {
+  cars: "car",
+  "star-wars": "sw",
+  batman: "batman",
+  tech: "tech",
+};
 
 const db = new PG.Client({
   user: process.env.DB_USER || "postgres",
@@ -59,12 +99,206 @@ async function initializeDatabase() {
       id SERIAL PRIMARY KEY,
       user_id INTEGER,
       group_id INTEGER,
+      UNIQUE (user_id, group_id),
       joined_at TIMESTAMP DEFAULT NOW()
     );
+
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS user_id INTEGER;
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_id INTEGER;
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_name VARCHAR(100);
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS memberships_user_group_idx ON memberships(user_id, group_id);
+    CREATE INDEX IF NOT EXISTS posts_group_id_idx ON posts(group_id);
+    CREATE INDEX IF NOT EXISTS posts_created_at_idx ON posts(created_at DESC);
   `;
 
   await db.query(schemaSql);
+  await seedDefaultGroups();
+  await backfillLegacyPosts();
   console.log("Database schema verified");
+}
+
+async function seedDefaultGroups() {
+  for (const group of DEFAULT_GROUPS) {
+    await db.query(
+      `
+        INSERT INTO groups (name, slug, description)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (slug) DO UPDATE
+        SET name = EXCLUDED.name,
+            description = EXCLUDED.description
+      `,
+      [group.name, group.slug, group.description]
+    );
+  }
+}
+
+async function backfillLegacyPosts() {
+  for (const group of DEFAULT_GROUPS) {
+    await db.query(
+      `
+        UPDATE posts
+        SET group_id = groups.id,
+            group_name = groups.name
+        FROM groups
+        WHERE groups.slug = $1
+          AND posts.group_id IS NULL
+          AND (posts.category = $2 OR posts.group_name = groups.name)
+      `,
+      [group.slug, group.legacyCategory]
+    );
+  }
+}
+
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function setFlash(req, type, message) {
+  req.session.flash = { type, message };
+}
+
+function requireAuth(req, res, next) {
+  if (!req.session.user) {
+    setFlash(req, "error", "Sign in to continue.");
+    return res.redirect("/login");
+  }
+
+  return next();
+}
+
+async function getGroups(currentUserId) {
+  const params = [];
+  const membershipSelect = currentUserId
+    ? `,
+       BOOL_OR(memberships.user_id = $1) AS is_member`
+    : ", FALSE AS is_member";
+
+  if (currentUserId) {
+    params.push(currentUserId);
+  }
+
+  const result = await db.query(
+    `
+      SELECT
+        groups.id,
+        groups.name,
+        groups.slug,
+        groups.description,
+        COUNT(DISTINCT memberships.user_id) AS member_count,
+        COUNT(DISTINCT posts.id) AS post_count
+        ${membershipSelect}
+      FROM groups
+      LEFT JOIN memberships ON memberships.group_id = groups.id
+      LEFT JOIN posts ON posts.group_id = groups.id
+      GROUP BY groups.id
+      ORDER BY groups.created_at ASC
+    `,
+    params
+  );
+
+  return result.rows.map((group) => ({
+    ...group,
+    member_count: Number(group.member_count || 0),
+    post_count: Number(group.post_count || 0),
+    is_member: group.is_member === true,
+  }));
+}
+
+async function getRecentPosts(limit = 8) {
+  const result = await db.query(
+    `
+      SELECT
+        posts.id,
+        posts.content,
+        posts.created_at,
+        COALESCE(users.username, 'Guest') AS username,
+        COALESCE(groups.name, posts.group_name, posts.category, 'General') AS group_name,
+        COALESCE(groups.slug, '') AS group_slug
+      FROM posts
+      LEFT JOIN users ON users.id = posts.user_id
+      LEFT JOIN groups ON groups.id = posts.group_id
+      ORDER BY posts.created_at DESC
+      LIMIT $1
+    `,
+    [limit]
+  );
+
+  return result.rows;
+}
+
+async function getGroupBySlug(slug) {
+  const result = await db.query(
+    `SELECT id, name, slug, description, created_by, created_at FROM groups WHERE slug = $1`,
+    [slug]
+  );
+  return result.rows[0] || null;
+}
+
+async function getPostsForGroup(group) {
+  const legacyCategory = legacyCategoryBySlug.get(group.slug) || null;
+  const params = [group.id, group.name, legacyCategory];
+
+  const result = await db.query(
+    `
+      SELECT
+        posts.id,
+        posts.content,
+        posts.created_at,
+        COALESCE(users.username, 'Guest') AS username,
+        COALESCE(groups.name, posts.group_name, $2) AS group_name
+      FROM posts
+      LEFT JOIN users ON users.id = posts.user_id
+      LEFT JOIN groups ON groups.id = posts.group_id
+      WHERE posts.group_id = $1
+         OR (posts.group_id IS NULL AND posts.group_name = $2)
+         OR ($3::text IS NOT NULL AND posts.group_id IS NULL AND posts.category = $3)
+      ORDER BY posts.created_at DESC
+    `,
+    params
+  );
+
+  return result.rows;
+}
+
+async function isGroupMember(userId, groupId) {
+  const result = await db.query(
+    `SELECT 1 FROM memberships WHERE user_id = $1 AND group_id = $2 LIMIT 1`,
+    [userId, groupId]
+  );
+
+  return result.rowCount > 0;
+}
+
+async function createPostForGroup({ userId, groupSlug, content }) {
+  const group = await getGroupBySlug(groupSlug);
+
+  if (!group) {
+    return null;
+  }
+
+  await db.query(
+    `
+      INSERT INTO posts (user_id, group_id, group_name, category, content)
+      VALUES ($1, $2, $3, $4, $5)
+    `,
+    [
+      userId,
+      group.id,
+      group.name,
+      legacyCategoryBySlug.get(group.slug) || group.name,
+      content,
+    ]
+  );
+
+  return group;
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -73,6 +307,13 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "development-session-secret",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
 app.use('/public', express.static('public'));
 
 app.set("view engine", "ejs");
@@ -80,149 +321,308 @@ app.engine("ejs", ejs.__express);
 app.set("views", path.join(__dirname, "./views"));
 app.use(express.static(__dirname + "/public/"));
 
-app.get("/", (req, res) => {
-  res.render("index.ejs");
+app.use((req, res, next) => {
+  res.locals.currentUser = req.session.user || null;
+  res.locals.flash = req.session.flash || null;
+  delete req.session.flash;
+  next();
 });
 
-app.get("/newpost", (req, res) => {
-  res.render("newpost.ejs", { theme : "newpost"});
+app.get("/", async (req, res) => {
+  const groups = await getGroups(req.session.user?.id);
+  const recentPosts = await getRecentPosts();
+  res.render("index.ejs", { theme: "home", groups, recentPosts });
 });
 
 app.get("/about", (req, res) => {
   res.render("about.ejs", { theme: "newpost" });
 });
 
-app.post("/submit", (req, res) => {
-  const post = req.body["blogPost"];
-  const selectedBlog = req.body.Blogs;
-  if(selectedBlog === "Car"){
-    res.render("carsblogpage.ejs", { post: post });
-  }
-  if(selectedBlog === "Batman"){
-    res.render("batmanblogpage.ejs", { post: post });
-  }
-  if(selectedBlog === "Star Wars"){
-    res.render("starwarsblogpage.ejs", { post: post });
-  }
-  if(selectedBlog === "Tech"){
-    res.render("techblogpage.ejs", { post: post });
-  }
+app.get("/signup", (req, res) => {
+  res.render("signup.ejs", { theme: "newpost" });
 });
 
-app.post("/IsubmitB", async(req, res) => {
-  const content = req.body["IndividualBlogPost"];
+app.post("/signup", async (req, res) => {
+  const username = req.body.username?.trim();
+  const email = req.body.email?.trim().toLowerCase();
+  const password = req.body.password || "";
+
+  if (!username || !email || password.length < 6) {
+    setFlash(req, "error", "Use a username, a valid email, and a password with at least 6 characters.");
+    return res.redirect("/signup");
+  }
+
   try {
-    await db.query(
-        "INSERT INTO posts (content, category) VALUES ($1, $2)",
-        [content, 'Batman']
+    const passwordHash = await bcrypt.hash(password, 10);
+    const result = await db.query(
+      `
+        INSERT INTO users (username, email, password_hash)
+        VALUES ($1, $2, $3)
+        RETURNING id, username, email
+      `,
+      [username, email, passwordHash]
     );
-    res.redirect("/batmanblogpage");
-  } catch (err) {
-    console.error(err);
-    res.redirect("/batmanblogpage");
+
+    req.session.user = result.rows[0];
+    setFlash(req, "success", "Account created. You can now join groups and post.");
+    return res.redirect("/");
+  } catch (error) {
+    console.error(error);
+    setFlash(req, "error", "That username or email is already in use.");
+    return res.redirect("/signup");
   }
 });
 
-app.post("/IsubmitC", async(req, res) => {
-  const content = req.body["IndividualBlogPost"];
-  try {
-    await db.query(
-        "INSERT INTO posts (content, category) VALUES ($1, $2)",
-        [content, 'Car']
-    );
-    res.redirect("/carsblogpage");
-  } catch (err) {
-    console.error(err);
-    res.redirect("/carsblogpage");
-  }
+app.get("/login", (req, res) => {
+  res.render("login.ejs", { theme: "newpost" });
 });
 
-app.post("/IsubmitS", async(req, res) => {
-  const content = req.body["IndividualBlogPost"];
-  try {
-    await db.query(
-        "INSERT INTO posts (content, category) VALUES ($1, $2)",
-        [content, 'Star Wars']
-    );
-    res.redirect("/starwarsblogpage");
-  } catch (err) {
-    console.error(err);
-    res.redirect("/starwarsblogpage");
-  }
-});
+app.post("/login", async (req, res) => {
+  const email = req.body.email?.trim().toLowerCase();
+  const password = req.body.password || "";
 
-app.post("/IsubmitT", async (req, res) => {
-  const content = req.body["IndividualBlogPost"];
-  try {
-    await db.query(
-        "INSERT INTO posts (content, category) VALUES ($1, $2)",
-        [content, 'Tech']
-    );
-    res.redirect("/techblogpage"); 
-  } catch (err) {
-    console.error(err);
-    res.redirect("/techblogpage");
-  }
-});
-
-app.get("/carsblogpage", async(req, res) => {
   try {
     const result = await db.query(
-        "SELECT * FROM posts WHERE category = 'Car' ORDER BY created_at DESC"
+      `SELECT id, username, email, password_hash FROM users WHERE email = $1 LIMIT 1`,
+      [email]
     );
-    res.render("carsblogpage.ejs", { 
-        theme: "car", 
-        posts: result.rows 
-    });
-  } catch (err) {
-    console.error(err);
-    res.render("carsblogpage.ejs", { theme: "car", posts: [] });
+    const user = result.rows[0];
+
+    if (!user) {
+      setFlash(req, "error", "No account found for that email.");
+      return res.redirect("/login");
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password_hash || "");
+    if (!passwordMatches) {
+      setFlash(req, "error", "Incorrect password.");
+      return res.redirect("/login");
+    }
+
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+    };
+
+    setFlash(req, "success", `Welcome back, ${user.username}.`);
+    return res.redirect("/");
+  } catch (error) {
+    console.error(error);
+    setFlash(req, "error", "Could not sign in right now.");
+    return res.redirect("/login");
   }
 });
 
-app.get("/starwarsblogpage", async(req, res) => {
+app.post("/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.redirect("/");
+  });
+});
+
+app.get("/groups/new", requireAuth, (req, res) => {
+  res.render("group-form.ejs", { theme: "newpost" });
+});
+
+app.post("/groups", requireAuth, async (req, res) => {
+  const name = req.body.name?.trim();
+  const description = req.body.description?.trim() || "";
+  const slug = slugify(name || "");
+
+  if (!name || !slug) {
+    setFlash(req, "error", "Give the group a name before creating it.");
+    return res.redirect("/groups/new");
+  }
+
   try {
-    const result = await db.query(
-        "SELECT * FROM posts WHERE category = 'Star Wars' ORDER BY created_at DESC"
+    await db.query(
+      `
+        INSERT INTO groups (name, slug, description, created_by)
+        VALUES ($1, $2, $3, $4)
+      `,
+      [name, slug, description, req.session.user.id]
     );
-    res.render("starwarsblogpage.ejs", { 
-        theme: "sw", 
-        posts: result.rows 
-    });
-  } catch (err) {
-    console.error(err);
-    res.render("starwarsblogpage.ejs", { theme: "sw", posts: [] });
+
+    setFlash(req, "success", `${name} is live. Invite people to join and start posting.`);
+    return res.redirect(`/groups/${slug}`);
+  } catch (error) {
+    console.error(error);
+    setFlash(req, "error", "That group name is already taken.");
+    return res.redirect("/groups/new");
   }
 });
 
-app.get("/batmanblogpage", async(req, res) => {
-  try {
-    const result = await db.query(
-        "SELECT * FROM posts WHERE category = 'Batman' ORDER BY created_at DESC"
-    );
-    res.render("batmanblogpage.ejs", { 
-        theme: "batman", 
-        posts: result.rows 
-    });
-  } catch (err) {
-    console.error(err);
-    res.render("batmanblogpage.ejs", { theme: "batman", posts: [] });
+app.post("/groups/:slug/join", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect("/");
   }
+
+  await db.query(
+    `
+      INSERT INTO memberships (user_id, group_id)
+      VALUES ($1, $2)
+      ON CONFLICT (user_id, group_id) DO NOTHING
+    `,
+    [req.session.user.id, group.id]
+  );
+
+  setFlash(req, "success", `You joined ${group.name}.`);
+  return res.redirect(`/groups/${group.slug}`);
 });
 
-app.get("/techblogpage", async (req, res) => {
-  try {
-    const result = await db.query(
-        "SELECT * FROM posts WHERE category = 'Tech' ORDER BY created_at DESC"
-    );
-    res.render("techblogpage.ejs", { 
-        theme: "tech", 
-        posts: result.rows // Passing ALL posts from DB
-    });
-  } catch (err) {
-    console.error(err);
-    res.render("techblogpage.ejs", { theme: "tech", posts: [] });
+app.get("/newpost", requireAuth, async (req, res) => {
+  const groups = await getGroups(req.session.user.id);
+  res.render("newpost.ejs", { theme: "newpost", groups });
+});
+
+app.post("/posts", requireAuth, async (req, res) => {
+  const content = req.body.content?.trim();
+  const groupId = Number(req.body.groupId);
+
+  if (!content || !groupId) {
+    setFlash(req, "error", "Choose a community and write something before posting.");
+    return res.redirect("/newpost");
   }
+
+  const result = await db.query(
+    `SELECT id, name, slug FROM groups WHERE id = $1 LIMIT 1`,
+    [groupId]
+  );
+  const group = result.rows[0];
+
+  if (!group) {
+    setFlash(req, "error", "That community no longer exists.");
+    return res.redirect("/newpost");
+  }
+
+  await createPostForGroup({
+    userId: req.session.user.id,
+    groupSlug: group.slug,
+    content,
+  });
+
+  setFlash(req, "success", `Your post is live in ${group.name}.`);
+  return res.redirect(`/groups/${group.slug}`);
+});
+
+app.get("/groups/:slug", async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+
+  if (!group) {
+    return res.status(404).render("group-page.ejs", {
+      theme: "newpost",
+      group: null,
+      posts: [],
+      isMember: false,
+    });
+  }
+
+  const [posts, isMember] = await Promise.all([
+    getPostsForGroup(group),
+    req.session.user ? isGroupMember(req.session.user.id, group.id) : Promise.resolve(false),
+  ]);
+
+  const theme = fallbackThemeBySlug[group.slug] || "newpost";
+  return res.render("group-page.ejs", { theme, group, posts, isMember });
+});
+
+app.get("/carsblogpage", (req, res) => {
+  res.redirect("/groups/cars");
+});
+
+app.get("/starwarsblogpage", (req, res) => {
+  res.redirect("/groups/star-wars");
+});
+
+app.get("/batmanblogpage", (req, res) => {
+  res.redirect("/groups/batman");
+});
+
+app.get("/techblogpage", (req, res) => {
+  res.redirect("/groups/tech");
+});
+
+app.post("/submit", requireAuth, async (req, res) => {
+  const content = req.body.blogPost?.trim();
+  const legacySelection = req.body.Blogs;
+  const groupSlugByLegacyValue = {
+    Car: "cars",
+    Batman: "batman",
+    "Star Wars": "star-wars",
+    Star_Wars: "star-wars",
+    Tech: "tech",
+  };
+  const groupSlug = groupSlugByLegacyValue[legacySelection] || req.body.groupSlug;
+
+  if (!content || !groupSlug) {
+    setFlash(req, "error", "Choose a community and write something before posting.");
+    return res.redirect("/newpost");
+  }
+
+  const group = await createPostForGroup({
+    userId: req.session.user.id,
+    groupSlug,
+    content,
+  });
+
+  if (!group) {
+    setFlash(req, "error", "That community no longer exists.");
+    return res.redirect("/newpost");
+  }
+
+  setFlash(req, "success", `Your post is live in ${group.name}.`);
+  return res.redirect(`/groups/${group.slug}`);
+});
+
+app.post("/IsubmitB", requireAuth, async (req, res) => {
+  const content = req.body["IndividualBlogPost"]?.trim();
+  if (!content) {
+    setFlash(req, "error", "Write something before posting.");
+    return res.redirect("/groups/batman");
+  }
+
+  await createPostForGroup({ userId: req.session.user.id, groupSlug: "batman", content });
+  setFlash(req, "success", "Your post is live in Batman.");
+  return res.redirect("/groups/batman");
+});
+
+app.post("/IsubmitC", requireAuth, async (req, res) => {
+  const content = req.body["IndividualBlogPost"]?.trim();
+  if (!content) {
+    setFlash(req, "error", "Write something before posting.");
+    return res.redirect("/groups/cars");
+  }
+
+  await createPostForGroup({ userId: req.session.user.id, groupSlug: "cars", content });
+  setFlash(req, "success", "Your post is live in Cars.");
+  return res.redirect("/groups/cars");
+});
+
+app.post("/IsubmitS", requireAuth, async (req, res) => {
+  const content = req.body["IndividualBlogPost"]?.trim();
+  if (!content) {
+    setFlash(req, "error", "Write something before posting.");
+    return res.redirect("/groups/star-wars");
+  }
+
+  await createPostForGroup({ userId: req.session.user.id, groupSlug: "star-wars", content });
+  setFlash(req, "success", "Your post is live in Star Wars.");
+  return res.redirect("/groups/star-wars");
+});
+
+app.post("/IsubmitT", requireAuth, async (req, res) => {
+  const content = req.body["IndividualBlogPost"]?.trim();
+  if (!content) {
+    setFlash(req, "error", "Write something before posting.");
+    return res.redirect("/groups/tech");
+  }
+
+  await createPostForGroup({ userId: req.session.user.id, groupSlug: "tech", content });
+  setFlash(req, "success", "Your post is live in Technology.");
+  return res.redirect("/groups/tech");
 });
 
 async function startServer() {

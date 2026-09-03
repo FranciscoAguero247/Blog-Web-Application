@@ -1,6 +1,6 @@
-<!--
-    Design main page blog to house in three distinct topics which are as follows: Star Wars, Batman, car community, and Technology
--->
+<!DOCTYPE html>
+<html lang="en" class="h-100" data-bs-theme="dark">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="">
@@ -16,14 +16,33 @@
 <header class="mb-auto header-container">
 <div class="container top-head-container">
     <header class="d-flex flex-wrap justify-content-center py-3 mb-4 border-bottom">
-      <a class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
-        <span class="fs-4">Chat Room</span>
+      <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
+        <span class="fs-4">Common Ground</span>
       </a>
       <ul class = "nav-links">
-          <li><a href="/">Home Blog</a></li>
-          <li class="center"><a href="/newpost">Quick Post</a></li>
+          <li><a href="/">Home</a></li>
+          <li><a href="/newpost">Create Post</a></li>
+          <li><a href="/groups/new">Create Group</a></li>
+          <% if (currentUser) { %>
+            <li><span class="nav-user">@<%= currentUser.username %></span></li>
+            <li>
+              <form action="/logout" method="POST" class="nav-form">
+                <button type="submit" class="nav-logout">Log Out</button>
+              </form>
+            </li>
+          <% } else { %>
+            <li><a href="/login">Log In</a></li>
+            <li><a href="/signup">Sign Up</a></li>
+          <% } %>
       </ul>
     </header>
   </div>
 </header>
 <main class="px-3">
+<% if (flash) { %>
+  <div class="container mb-4">
+    <div class="alert <%= flash.type === 'error' ? 'alert-danger' : 'alert-success' %>" role="alert">
+      <%= flash.message %>
+    </div>
+  </div>
+<% } %>

@@ -1,0 +1,30 @@
+<%- include("partials/header.ejs") %>
+
+<video autoplay muted loop id="background-video">
+  <source src="/public/images/3 color Neon frame Video Background - lyric video Frame for Edits - Background video effects.mp4" type="video/mp4">
+</video>
+
+<main class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+  <div class="post-container">
+    <h1>Create a Group</h1>
+    <p class="text-body-secondary">Launch a community around a shared interest and make it discoverable from the homepage.</p>
+
+    <form action="/groups" method="POST">
+      <div class="mb-4 text-start">
+        <label class="form-label text-white">Group name</label>
+        <input class="form-control bg-dark text-white border-secondary" type="text" name="name" maxlength="100" required>
+      </div>
+
+      <div class="mb-4 text-start">
+        <label class="form-label text-white">Description</label>
+        <textarea class="form-control bg-dark text-white border-secondary" name="description" rows="4" maxlength="500" placeholder="Who is this group for?"></textarea>
+      </div>
+
+      <div class="d-grid">
+        <button type="submit" class="button-19">Launch group</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<%- include("partials/footer.ejs") %>

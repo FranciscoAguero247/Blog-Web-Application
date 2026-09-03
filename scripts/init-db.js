@@ -55,8 +55,19 @@ async function init() {
         id SERIAL PRIMARY KEY,
         user_id INTEGER,
         group_id INTEGER,
+        UNIQUE (user_id, group_id),
         joined_at TIMESTAMP DEFAULT NOW()
       );
+
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS user_id INTEGER;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_id INTEGER;
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_name VARCHAR(100);
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS memberships_user_group_idx ON memberships(user_id, group_id);
+      CREATE INDEX IF NOT EXISTS posts_group_id_idx ON posts(group_id);
+      CREATE INDEX IF NOT EXISTS posts_created_at_idx ON posts(created_at DESC);
     `);
 
     console.log('Database initialized successfully.');

@@ -1,0 +1,56 @@
+<%- include("partials/header.ejs") %>
+
+<video autoplay muted loop id="background-video">
+  <source src="/public/images/Animated Video Background - Saber Lighting Frame for Edits - Background video effects.mp4" type="video/mp4">
+</video>
+
+<a href="/" class="back-btn">
+  <i class="fa-solid fa-chevron-left"></i> Back to Hub
+</a>
+
+<section class="container pb-5">
+  <% if (!group) { %>
+    <div class="feed-card text-start">
+      <h1>Community not found</h1>
+      <p class="mb-0">The group you tried to open does not exist.</p>
+    </div>
+  <% } else { %>
+    <div class="group-hero text-start mb-4">
+      <p class="community-slug">/<%= group.slug %></p>
+      <h1><%= group.name %></h1>
+      <p><%= group.description || 'A place for people with the same interests to talk and post.' %></p>
+      <div class="hero-actions d-flex flex-wrap gap-3">
+        <% if (currentUser && !isMember) { %>
+          <form action="/groups/<%= group.slug %>/join" method="POST">
+            <button type="submit" class="button-19">Join group</button>
+          </form>
+        <% } %>
+        <% if (currentUser) { %>
+          <a href="/newpost" class="blog-link">Create a post</a>
+        <% } else { %>
+          <a href="/login" class="blog-link">Log in to participate</a>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="feed-shell">
+      <% if (posts.length > 0) { %>
+        <% posts.forEach(post => { %>
+          <article class="feed-card text-start mb-3">
+            <div class="feed-card-header">
+              <strong>@<%= post.username %></strong>
+              <span><%= post.created_at.toLocaleString() %></span>
+            </div>
+            <p class="mb-0"><%= post.content %></p>
+          </article>
+        <% }) %>
+      <% } else { %>
+        <div class="feed-card text-start">
+          <p class="mb-0">No posts yet. Start the conversation and define what this group becomes.</p>
+        </div>
+      <% } %>
+    </div>
+  <% } %>
+</section>
+
+<%- include("partials/footer.ejs") %>

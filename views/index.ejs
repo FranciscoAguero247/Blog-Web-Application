@@ -1,48 +1,83 @@
-<html lang="en" class="h-100" data-bs-theme="dark"><head><script src="/docs/5.3/assets/js/color-modes.js"></script>
 <%- include("partials/header.ejs") %>
-    <video autoplay muted loop id="background-video">
+<video autoplay muted loop id="background-video">
         <source src="/public/images/Animated Video Background - Saber Lighting Frame for Edits - Background video effects.mp4" type="video/mp4">
-    </video>
-    <div class="blog-links position-absolute top-50 start-50 translate-middle">
-    <div class="welcome-container">
-        <h1>Welcome</h1>
-        <p>
-            Select a topic to read more on:
-        </p>
-    </div>
-      <div class="container px-4 py-5 " id="featured-3">
-        <div class="row text-center">
-            <div class="col-md-3">
-            <div class="icon-shield sw-icon">
-                <i class="fa-solid fa-jedi"></i>
-            </div>
-            <h2>Star Wars</h2>
-            <a href="/starwarsblogpage" class="blog-link sw-btn">View Galaxy</a>
-        </div>
-         <div class="col-md-3">
-            <div class="icon-shield car-icon">
-                <i class="fa-solid fa-gauge-high"></i>
-            </div>
-            <h2>Cars</h2>
-            <a href="/carsblogpage" class="blog-link car-btn">Start Engines</a>
-        </div>
-          
-        <div class="col-md-3">
-            <div class="icon-shield batman-icon">
-                <i class="fa-solid fa-mask"></i>
-            </div>
-            <h2>Batman</h2>
-            <a href="/batmanblogpage" class="blog-link batman-btn">Enter Cave</a>
-        </div>
+</video>
 
-          <div class="col-md-3">
-        <div class="icon-shield tech-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>
+<section class="container community-hero py-4 py-md-5">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-6 text-start">
+            <p class="eyebrow">Interest-based communities</p>
+            <h1>Build discussion spaces around what people actually care about.</h1>
+            <p class="lead mb-4">Predefined fandoms are here, but the platform is now ready for members to create their own groups, join communities, and publish posts under a real identity.</p>
+            <div class="hero-actions d-flex flex-wrap gap-3">
+                <a href="/newpost" class="blog-link">Create a post</a>
+                <a href="/groups/new" class="blog-link">Launch a group</a>
+            </div>
         </div>
-        <h2>Technology</h2>
-        <a href="/techblogpage" class="blog-link tech-btn">Access Nexus</a>
+        <div class="col-lg-6">
+            <div class="stats-shell">
+                <div class="stat-card">
+                    <small>Communities</small>
+                    <strong><%= groups.length %></strong>
+                </div>
+                <div class="stat-card">
+                    <small>Recent posts</small>
+                    <strong><%= recentPosts.length %></strong>
+                </div>
+                <div class="stat-card wide">
+                    <small>Status</small>
+                    <strong><%= currentUser ? 'Signed in and ready to participate' : 'Browse now, sign in to join and post' %></strong>
+                </div>
+            </div>
         </div>
-        </div>
-      </div>
-</div>
+    </div>
+</section>
+
+<section class="container pb-5">
+    <div class="section-heading text-start mb-4">
+        <h2>Communities</h2>
+        <p>Default topics stay in place, and every new group created by users appears here too.</p>
+    </div>
+    <div class="row g-4">
+        <% groups.forEach(group => { %>
+            <div class="col-md-6 col-xl-3">
+                <article class="community-card h-100 text-start">
+                    <p class="community-slug">/<%= group.slug %></p>
+                    <h3><%= group.name %></h3>
+                    <p><%= group.description || 'A place to gather around a shared interest.' %></p>
+                    <div class="community-meta">
+                        <span><%= group.member_count %> members</span>
+                        <span><%= group.post_count %> posts</span>
+                    </div>
+                    <a href="/groups/<%= group.slug %>" class="blog-link">Open group</a>
+                </article>
+            </div>
+        <% }) %>
+    </div>
+</section>
+
+<section class="container pb-5">
+    <div class="section-heading text-start mb-4">
+        <h2>Recent activity</h2>
+        <p>The feed starts simple: the newest posts across every community.</p>
+    </div>
+    <div class="feed-shell">
+        <% if (recentPosts.length > 0) { %>
+            <% recentPosts.forEach(post => { %>
+                <article class="feed-card text-start mb-3">
+                    <div class="feed-card-header">
+                        <strong>@<%= post.username %></strong>
+                        <span>in <%= post.group_name %></span>
+                    </div>
+                    <p class="mb-2"><%= post.content %></p>
+                    <small class="text-white-50"><%= post.created_at.toLocaleString() %></small>
+                </article>
+            <% }) %>
+        <% } else { %>
+            <div class="feed-card text-start">
+                <p class="mb-0">No activity yet. Create the first post and set the tone for the community.</p>
+            </div>
+        <% } %>
+    </div>
+</section>
 <%- include("partials/footer.ejs") %>

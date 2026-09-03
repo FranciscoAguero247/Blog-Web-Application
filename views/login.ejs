@@ -1,0 +1,31 @@
+<%- include("partials/header.ejs") %>
+
+<video autoplay muted loop id="background-video">
+  <source src="/public/images/3 color Neon frame Video Background - lyric video Frame for Edits - Background video effects.mp4" type="video/mp4">
+</video>
+
+<main class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+  <div class="post-container">
+    <h1>Log In</h1>
+    <p class="text-body-secondary">Sign in to join communities, create groups, and publish posts.</p>
+
+    <form action="/login" method="POST">
+      <div class="mb-4 text-start">
+        <label class="form-label text-white">Email</label>
+        <input class="form-control bg-dark text-white border-secondary" type="email" name="email" required>
+      </div>
+
+      <div class="mb-4 text-start">
+        <label class="form-label text-white">Password</label>
+        <input class="form-control bg-dark text-white border-secondary" type="password" name="password" required>
+      </div>
+
+      <div class="d-grid gap-3">
+        <button type="submit" class="button-19">Enter the platform</button>
+        <a href="/signup" class="blog-link">Need an account?</a>
+      </div>
+    </form>
+  </div>
+</main>
+
+<%- include("partials/footer.ejs") %>
