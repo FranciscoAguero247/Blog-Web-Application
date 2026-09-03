@@ -20,9 +20,16 @@
       <h1><%= group.name %></h1>
       <p><%= group.description || 'A place for people with the same interests to talk and post.' %></p>
       <div class="hero-actions d-flex flex-wrap gap-3">
+        <% if (currentUser && isCreator) { %>
+          <a href="/groups/<%= group.slug %>/edit" class="blog-link">Manage Group</a>
+        <% } %>
         <% if (currentUser && !isMember) { %>
           <form action="/groups/<%= group.slug %>/join" method="POST">
             <button type="submit" class="button-19">Join group</button>
+          </form>
+        <% } else if (currentUser && isMember && !isCreator) { %>
+          <form action="/groups/<%= group.slug %>/leave" method="POST">
+            <button type="submit" class="button-19 owner-button danger">Leave group</button>
           </form>
         <% } %>
         <% if (currentUser) { %>

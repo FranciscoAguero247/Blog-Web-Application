@@ -9,6 +9,9 @@ const userEmail = `${runId}@example.com`;
 const username = runId;
 const password = "Pass1234!";
 const groupName = `Integration Group ${runId}`;
+const secondUserEmail = `member-${runId}@example.com`;
+const secondUsername = `member-${runId}`;
+const secondPassword = "Pass1234!";
 let createdGroupSlug = "";
 let createdPostId = 0;
 let createdCommentId = 0;
@@ -32,6 +35,7 @@ async function cleanup() {
   }
 
   await db.query(`DELETE FROM users WHERE email = $1`, [userEmail]);
+  await db.query(`DELETE FROM users WHERE email = $1`, [secondUserEmail]);
 }
 
 test("MVP community flow works end to end", async (t) => {
@@ -79,6 +83,23 @@ test("MVP community flow works end to end", async (t) => {
     );
 
     assert.equal(membership.rowCount, 1);
+  });
+
+  await t.test("group creator can manage group settings", async () => {
+    const editPage = await agent.get(`/groups/${createdGroupSlug}/edit`);
+    assert.equal(editPage.status, 200);
+    assert.match(editPage.text, /Manage Community/);
+
+    const updateResponse = await agent
+      .post(`/groups/${createdGroupSlug}/edit`)
+      .type("form")
+      .send({ name: groupName, description: "Updated description from integration tests." });
+
+    assert.equal(updateResponse.status, 302);
+    assert.equal(updateResponse.headers.location, `/groups/${createdGroupSlug}`);
+
+    const groupPage = await agent.get(`/groups/${createdGroupSlug}`);
+    assert.match(groupPage.text, /Updated description from integration tests\./);
   });
 
   await t.test("new post page only lists joined groups", async () => {
@@ -194,6 +215,45 @@ test("MVP community flow works end to end", async (t) => {
 
     const rejectedPage = await agent.get("/groups/tech");
     assert.match(rejectedPage.text, /Join Technology before posting\./);
+  });
+
+  await t.test("non-creator member can leave a group", async () => {
+    const memberAgent = request.agent(app);
+
+    const signupResponse = await memberAgent
+      .post("/signup")
+      .type("form")
+      .send({ username: secondUsername, email: secondUserEmail, password: secondPassword });
+    assert.equal(signupResponse.status, 302);
+
+    const joinResponse = await memberAgent.post(`/groups/${createdGroupSlug}/join`).type("form").send({});
+    assert.equal(joinResponse.status, 302);
+    assert.equal(joinResponse.headers.location, `/groups/${createdGroupSlug}`);
+
+    const leaveResponse = await memberAgent.post(`/groups/${createdGroupSlug}/leave`).type("form").send({});
+    assert.equal(leaveResponse.status, 302);
+    assert.equal(leaveResponse.headers.location, `/groups/${createdGroupSlug}`);
+
+    const memberCheck = await db.query(
+      `
+        SELECT 1
+        FROM memberships
+        INNER JOIN groups ON groups.id = memberships.group_id
+        INNER JOIN users ON users.id = memberships.user_id
+        WHERE groups.slug = $1 AND users.email = $2
+      `,
+      [createdGroupSlug, secondUserEmail]
+    );
+    assert.equal(memberCheck.rowCount, 0);
+  });
+
+  await t.test("creator cannot leave own group", async () => {
+    const leaveResponse = await agent.post(`/groups/${createdGroupSlug}/leave`).type("form").send({});
+    assert.equal(leaveResponse.status, 302);
+    assert.equal(leaveResponse.headers.location, `/groups/${createdGroupSlug}`);
+
+    const groupPage = await agent.get(`/groups/${createdGroupSlug}`);
+    assert.match(groupPage.text, /Group creators cannot leave their own community\./);
   });
 
   await t.test("user can delete owned post and comment", async () => {

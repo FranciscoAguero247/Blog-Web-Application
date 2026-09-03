@@ -214,6 +214,7 @@ async function getGroups(currentUserId) {
         groups.name,
         groups.slug,
         groups.description,
+        groups.created_by,
         COUNT(DISTINCT memberships.user_id) AS member_count,
         COUNT(DISTINCT posts.id) AS post_count
         ${membershipSelect}
@@ -272,7 +273,7 @@ async function getProfileSummary(userId) {
   const [groupResult, postResult, commentResult] = await Promise.all([
     db.query(
       `
-        SELECT groups.id, groups.name, groups.slug, groups.description
+        SELECT groups.id, groups.name, groups.slug, groups.description, groups.created_by
         FROM memberships
         INNER JOIN groups ON groups.id = memberships.group_id
         WHERE memberships.user_id = $1
@@ -413,6 +414,10 @@ async function getWritableGroupForUser(userId, groupSlug) {
   }
 
   return { group, error: null };
+}
+
+function isGroupCreator(group, userId) {
+  return Number(group.created_by) === Number(userId);
 }
 
 async function createPostForGroup({ userId, groupSlug, content }) {
@@ -684,6 +689,80 @@ app.post("/groups/:slug/join", requireAuth, async (req, res) => {
   return res.redirect(`/groups/${group.slug}`);
 });
 
+app.post("/groups/:slug/leave", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect("/");
+  }
+
+  if (isGroupCreator(group, req.session.user.id)) {
+    setFlash(req, "error", "Group creators cannot leave their own community.");
+    return res.redirect(`/groups/${group.slug}`);
+  }
+
+  await db.query(
+    `DELETE FROM memberships WHERE user_id = $1 AND group_id = $2`,
+    [req.session.user.id, group.id]
+  );
+
+  setFlash(req, "success", `You left ${group.name}.`);
+  return res.redirect(`/groups/${group.slug}`);
+});
+
+app.get("/groups/:slug/edit", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect("/");
+  }
+
+  if (!isGroupCreator(group, req.session.user.id)) {
+    setFlash(req, "error", "Only the group creator can manage this community.");
+    return res.redirect(`/groups/${group.slug}`);
+  }
+
+  return res.render("group-edit.ejs", { theme: "newpost", group });
+});
+
+app.post("/groups/:slug/edit", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect("/");
+  }
+
+  if (!isGroupCreator(group, req.session.user.id)) {
+    setFlash(req, "error", "Only the group creator can manage this community.");
+    return res.redirect(`/groups/${group.slug}`);
+  }
+
+  const name = req.body.name?.trim();
+  const description = req.body.description?.trim() || "";
+
+  if (!name) {
+    setFlash(req, "error", "Group name cannot be empty.");
+    return res.redirect(`/groups/${group.slug}/edit`);
+  }
+
+  try {
+    await db.query(
+      `UPDATE groups SET name = $1, description = $2 WHERE id = $3`,
+      [name, description, group.id]
+    );
+
+    setFlash(req, "success", "Community details updated.");
+    return res.redirect(`/groups/${group.slug}`);
+  } catch (error) {
+    console.error(error);
+    setFlash(req, "error", "Group name is already in use.");
+    return res.redirect(`/groups/${group.slug}/edit`);
+  }
+});
+
 app.get("/newpost", requireAuth, async (req, res) => {
   const groups = (await getGroups(req.session.user.id)).filter((group) => group.is_member);
   res.render("newpost.ejs", { theme: "newpost", groups });
@@ -872,6 +951,8 @@ app.get("/groups/:slug", async (req, res) => {
     req.session.user ? isGroupMember(req.session.user.id, group.id) : Promise.resolve(false),
   ]);
 
+  const isCreator = req.session.user ? isGroupCreator(group, req.session.user.id) : false;
+
   const postIds = posts.map((post) => Number(post.id));
   const commentsByPostId = await getCommentsForPostIds(postIds);
   const postsWithComments = posts.map((post) => ({
@@ -880,7 +961,7 @@ app.get("/groups/:slug", async (req, res) => {
   }));
 
   const theme = fallbackThemeBySlug[group.slug] || "newpost";
-  return res.render("group-page.ejs", { theme, group, posts: postsWithComments, isMember });
+  return res.render("group-page.ejs", { theme, group, posts: postsWithComments, isMember, isCreator });
 });
 
 app.get("/carsblogpage", (req, res) => {

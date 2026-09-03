@@ -1,0 +1,46 @@
+<%- include("partials/header.ejs") %>
+
+<video autoplay muted loop id="background-video">
+  <source src="/public/images/3 color Neon frame Video Background - lyric video Frame for Edits - Background video effects.mp4" type="video/mp4">
+</video>
+
+<a href="/groups/<%= group.slug %>" class="back-btn">
+  <i class="fa-solid fa-chevron-left"></i> Back to Group
+</a>
+
+<main class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+  <div class="post-container">
+    <h1>Manage Community</h1>
+    <p class="text-body-secondary">Update how your community appears to members and visitors.</p>
+
+    <form action="/groups/<%= group.slug %>/edit" method="POST">
+      <div class="mb-4 text-start">
+        <label class="form-label text-white">Group name</label>
+        <input
+          class="form-control bg-dark text-white border-secondary"
+          type="text"
+          name="name"
+          maxlength="100"
+          value="<%= group.name %>"
+          required
+        >
+      </div>
+
+      <div class="mb-4 text-start">
+        <label class="form-label text-white">Description</label>
+        <textarea
+          class="form-control bg-dark text-white border-secondary"
+          name="description"
+          rows="4"
+          maxlength="500"
+        ><%= group.description || '' %></textarea>
+      </div>
+
+      <div class="d-grid">
+        <button type="submit" class="button-19">Save community details</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<%- include("partials/footer.ejs") %>

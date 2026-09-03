@@ -44,6 +44,15 @@
                   <a href="/groups/<%= group.slug %>" class="profile-link">Open</a>
                 </div>
                 <p class="mb-0"><%= group.description || 'No description yet.' %></p>
+                <div class="owner-tools mt-3">
+                  <% if (Number(group.created_by) === Number(currentUser.id)) { %>
+                    <a href="/groups/<%= group.slug %>/edit" class="profile-link">Manage group</a>
+                  <% } else { %>
+                    <form action="/groups/<%= group.slug %>/leave" method="POST" class="owner-form-inline">
+                      <button type="submit" class="button-19 owner-button danger">Leave group</button>
+                    </form>
+                  <% } %>
+                </div>
               </article>
             <% }) %>
           </div>
