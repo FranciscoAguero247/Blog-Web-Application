@@ -234,7 +234,17 @@ async function getGroups(currentUserId) {
   }));
 }
 
-async function getRecentPosts(limit = 8) {
+async function getRecentPosts({ limit = 8, userId = null, joinedOnly = false } = {}) {
+  const params = [limit];
+  let membershipJoin = "";
+  let membershipWhere = "";
+
+  if (joinedOnly && userId) {
+    params.push(userId);
+    membershipJoin = "INNER JOIN memberships ON memberships.group_id = posts.group_id AND memberships.user_id = $2";
+    membershipWhere = "WHERE posts.group_id IS NOT NULL";
+  }
+
   const result = await db.query(
     `
       SELECT
@@ -247,10 +257,12 @@ async function getRecentPosts(limit = 8) {
       FROM posts
       LEFT JOIN users ON users.id = posts.user_id
       LEFT JOIN groups ON groups.id = posts.group_id
+      ${membershipJoin}
+      ${membershipWhere}
       ORDER BY posts.created_at DESC
       LIMIT $1
     `,
-    [limit]
+    params
   );
 
   return result.rows;
@@ -503,8 +515,13 @@ app.use((req, res, next) => {
 
 app.get("/", async (req, res) => {
   const groups = await getGroups(req.session.user?.id);
-  const recentPosts = await getRecentPosts();
-  res.render("index.ejs", { theme: "home", groups, recentPosts });
+  const requestedFeed = req.query.feed === "joined" ? "joined" : "all";
+  const feedMode = req.session.user ? requestedFeed : "all";
+  const recentPosts = await getRecentPosts({
+    userId: req.session.user?.id || null,
+    joinedOnly: feedMode === "joined",
+  });
+  res.render("index.ejs", { theme: "home", groups, recentPosts, feedMode });
 });
 
 app.get("/about", (req, res) => {

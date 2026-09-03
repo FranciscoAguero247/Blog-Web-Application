@@ -149,6 +149,21 @@ test("MVP community flow works end to end", async (t) => {
     assert.match(response.text, /Integration test comment content/);
   });
 
+  await t.test("home feed can be filtered to joined groups", async () => {
+    const allFeed = await agent.get("/");
+    assert.equal(allFeed.status, 200);
+    assert.match(allFeed.text, /All activity/);
+    assert.match(allFeed.text, /Joined groups/);
+    assert.match(allFeed.text, /Integration test post content/);
+    assert.match(allFeed.text, />sss</);
+
+    const joinedFeed = await agent.get("/?feed=joined");
+    assert.equal(joinedFeed.status, 200);
+    assert.match(joinedFeed.text, /This view only shows posts from communities you joined\./);
+    assert.match(joinedFeed.text, /Integration test post content/);
+    assert.doesNotMatch(joinedFeed.text, />sss</);
+  });
+
   await t.test("user can edit owned post and comment", async () => {
     const postResponse = await agent
       .post(`/posts/${createdPostId}/edit`)

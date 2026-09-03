@@ -59,7 +59,13 @@
 <section class="container pb-5">
     <div class="section-heading text-start mb-4">
         <h2>Recent activity</h2>
-        <p>The feed starts simple: the newest posts across every community.</p>
+        <p><%= currentUser && feedMode === 'joined' ? 'This view only shows posts from communities you joined.' : 'The feed starts simple: the newest posts across every community.' %></p>
+        <div class="feed-filter-row">
+            <a href="/" class="feed-filter-link <%= feedMode === 'all' ? 'active' : '' %>">All activity</a>
+            <% if (currentUser) { %>
+                <a href="/?feed=joined" class="feed-filter-link <%= feedMode === 'joined' ? 'active' : '' %>">Joined groups</a>
+            <% } %>
+        </div>
     </div>
     <div class="feed-shell">
         <% if (recentPosts.length > 0) { %>
@@ -75,7 +81,7 @@
             <% }) %>
         <% } else { %>
             <div class="feed-card text-start">
-                <p class="mb-0">No activity yet. Create the first post and set the tone for the community.</p>
+                <p class="mb-0"><%= feedMode === 'joined' ? 'No posts from your joined communities yet. Join another group or create the first update in one you already follow.' : 'No activity yet. Create the first post and set the tone for the community.' %></p>
             </div>
         <% } %>
     </div>
