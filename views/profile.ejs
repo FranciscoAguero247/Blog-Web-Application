@@ -69,6 +69,17 @@
                 </div>
                 <p class="mb-2"><%= post.content %></p>
                 <small class="text-white-50"><%= post.created_at.toLocaleString() %></small>
+                <div class="owner-tools mt-3">
+                  <form action="/posts/<%= post.id %>/edit" method="POST" class="owner-form owner-form-stack">
+                    <input type="hidden" name="returnTo" value="/profile">
+                    <textarea name="content" class="form-control bg-dark text-white border-secondary" rows="2" required><%= post.content %></textarea>
+                    <button type="submit" class="button-19 owner-button">Save Post</button>
+                  </form>
+                  <form action="/posts/<%= post.id %>/delete" method="POST" class="owner-form-inline">
+                    <input type="hidden" name="returnTo" value="/profile">
+                    <button type="submit" class="button-19 owner-button danger">Delete Post</button>
+                  </form>
+                </div>
               </article>
             <% }) %>
           </div>
@@ -93,6 +104,17 @@
                 </div>
                 <p class="mb-2"><%= comment.content %></p>
                 <small class="text-white-50"><%= comment.created_at.toLocaleString() %></small>
+                <div class="owner-tools mt-3">
+                  <form action="/comments/<%= comment.id %>/edit" method="POST" class="owner-form owner-form-stack">
+                    <input type="hidden" name="returnTo" value="/profile">
+                    <textarea name="content" class="form-control bg-dark text-white border-secondary" rows="2" required><%= comment.content %></textarea>
+                    <button type="submit" class="button-19 owner-button">Save Comment</button>
+                  </form>
+                  <form action="/comments/<%= comment.id %>/delete" method="POST" class="owner-form-inline">
+                    <input type="hidden" name="returnTo" value="/profile">
+                    <button type="submit" class="button-19 owner-button danger">Delete Comment</button>
+                  </form>
+                </div>
               </article>
             <% }) %>
           </div>

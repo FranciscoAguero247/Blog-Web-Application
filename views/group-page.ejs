@@ -43,6 +43,20 @@
             </div>
             <p class="mb-3"><%= post.content %></p>
 
+            <% if (currentUser && Number(currentUser.id) === Number(post.user_id)) { %>
+              <div class="owner-tools mb-3">
+                <form action="/posts/<%= post.id %>/edit" method="POST" class="owner-form owner-form-stack">
+                  <input type="hidden" name="returnTo" value="/groups/<%= group.slug %>">
+                  <textarea name="content" class="form-control bg-dark text-white border-secondary" rows="2" required><%= post.content %></textarea>
+                  <button type="submit" class="button-19 owner-button">Save Post</button>
+                </form>
+                <form action="/posts/<%= post.id %>/delete" method="POST" class="owner-form-inline">
+                  <input type="hidden" name="returnTo" value="/groups/<%= group.slug %>">
+                  <button type="submit" class="button-19 owner-button danger">Delete Post</button>
+                </form>
+              </div>
+            <% } %>
+
             <section class="post-comments">
               <p class="comment-count mb-2"><%= post.comments.length %> comments</p>
               <% if (post.comments.length > 0) { %>
@@ -54,6 +68,19 @@
                         <small><%= comment.created_at.toLocaleString() %></small>
                       </div>
                       <p class="mb-0"><%= comment.content %></p>
+                      <% if (currentUser && Number(currentUser.id) === Number(comment.user_id)) { %>
+                        <div class="owner-tools owner-tools-compact mt-3">
+                          <form action="/comments/<%= comment.id %>/edit" method="POST" class="owner-form owner-form-stack">
+                            <input type="hidden" name="returnTo" value="/groups/<%= group.slug %>">
+                            <textarea name="content" class="form-control bg-dark text-white border-secondary" rows="2" required><%= comment.content %></textarea>
+                            <button type="submit" class="button-19 owner-button">Save Comment</button>
+                          </form>
+                          <form action="/comments/<%= comment.id %>/delete" method="POST" class="owner-form-inline">
+                            <input type="hidden" name="returnTo" value="/groups/<%= group.slug %>">
+                            <button type="submit" class="button-19 owner-button danger">Delete Comment</button>
+                          </form>
+                        </div>
+                      <% } %>
                     </article>
                   <% }) %>
                 </div>

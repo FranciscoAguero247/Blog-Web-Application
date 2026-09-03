@@ -251,6 +251,7 @@ async function getProfileSummary(userId) {
       `
         SELECT
           posts.id,
+          posts.user_id,
           posts.content,
           posts.created_at,
           COALESCE(groups.name, posts.group_name, posts.category, 'General') AS group_name,
@@ -266,6 +267,7 @@ async function getProfileSummary(userId) {
       `
         SELECT
           comments.id,
+          comments.user_id,
           comments.content,
           comments.created_at,
           posts.id AS post_id,
@@ -304,6 +306,7 @@ async function getPostsForGroup(group) {
     `
       SELECT
         posts.id,
+        posts.user_id,
         posts.content,
         posts.created_at,
         COALESCE(users.username, 'Guest') AS username,
@@ -332,6 +335,7 @@ async function getCommentsForPostIds(postIds) {
       SELECT
         comments.id,
         comments.post_id,
+        comments.user_id,
         comments.content,
         comments.created_at,
         COALESCE(users.username, 'Guest') AS username
@@ -400,6 +404,53 @@ async function createPostForGroup({ userId, groupSlug, content }) {
   );
 
   return group;
+}
+
+async function getOwnedPostForUser(userId, postId) {
+  const result = await db.query(
+    `
+      SELECT
+        posts.id,
+        posts.group_id,
+        COALESCE(groups.slug, '') AS group_slug,
+        COALESCE(groups.name, posts.group_name, posts.category, 'General') AS group_name
+      FROM posts
+      LEFT JOIN groups ON groups.id = posts.group_id
+      WHERE posts.id = $1 AND posts.user_id = $2
+      LIMIT 1
+    `,
+    [postId, userId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function getOwnedCommentForUser(userId, commentId) {
+  const result = await db.query(
+    `
+      SELECT
+        comments.id,
+        comments.post_id,
+        COALESCE(groups.slug, '') AS group_slug,
+        COALESCE(groups.name, posts.group_name, posts.category, 'General') AS group_name
+      FROM comments
+      INNER JOIN posts ON posts.id = comments.post_id
+      LEFT JOIN groups ON groups.id = posts.group_id
+      WHERE comments.id = $1 AND comments.user_id = $2
+      LIMIT 1
+    `,
+    [commentId, userId]
+  );
+
+  return result.rows[0] || null;
+}
+
+function getSafeReturnPath(candidatePath, fallbackPath = "/profile") {
+  if (typeof candidatePath === "string" && candidatePath.startsWith("/")) {
+    return candidatePath;
+  }
+
+  return fallbackPath;
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -687,6 +738,83 @@ app.post("/posts/:postId/comments", requireAuth, async (req, res) => {
 
   setFlash(req, "success", "Comment posted.");
   return res.redirect(`/groups/${group.slug}`);
+});
+
+app.post("/posts/:postId/edit", requireAuth, async (req, res) => {
+  const postId = Number(req.params.postId);
+  const content = req.body.content?.trim();
+  const ownedPost = await getOwnedPostForUser(req.session.user.id, postId);
+  const fallbackPath = ownedPost?.group_slug ? `/groups/${ownedPost.group_slug}` : "/profile";
+  const returnPath = getSafeReturnPath(req.body.returnTo, fallbackPath);
+
+  if (!ownedPost) {
+    setFlash(req, "error", "You can only edit your own posts.");
+    return res.redirect(returnPath);
+  }
+
+  if (!content) {
+    setFlash(req, "error", "Post content cannot be empty.");
+    return res.redirect(returnPath);
+  }
+
+  await db.query(`UPDATE posts SET content = $1 WHERE id = $2`, [content, postId]);
+  setFlash(req, "success", "Post updated.");
+  return res.redirect(returnPath);
+});
+
+app.post("/posts/:postId/delete", requireAuth, async (req, res) => {
+  const postId = Number(req.params.postId);
+  const ownedPost = await getOwnedPostForUser(req.session.user.id, postId);
+  const fallbackPath = ownedPost?.group_slug ? `/groups/${ownedPost.group_slug}` : "/profile";
+  const returnPath = getSafeReturnPath(req.body.returnTo, fallbackPath);
+
+  if (!ownedPost) {
+    setFlash(req, "error", "You can only delete your own posts.");
+    return res.redirect(returnPath);
+  }
+
+  await db.query(`DELETE FROM comments WHERE post_id = $1`, [postId]);
+  await db.query(`DELETE FROM posts WHERE id = $1`, [postId]);
+  setFlash(req, "success", "Post deleted.");
+  return res.redirect(returnPath);
+});
+
+app.post("/comments/:commentId/edit", requireAuth, async (req, res) => {
+  const commentId = Number(req.params.commentId);
+  const content = req.body.content?.trim();
+  const ownedComment = await getOwnedCommentForUser(req.session.user.id, commentId);
+  const fallbackPath = ownedComment?.group_slug ? `/groups/${ownedComment.group_slug}` : "/profile";
+  const returnPath = getSafeReturnPath(req.body.returnTo, fallbackPath);
+
+  if (!ownedComment) {
+    setFlash(req, "error", "You can only edit your own comments.");
+    return res.redirect(returnPath);
+  }
+
+  if (!content) {
+    setFlash(req, "error", "Comment content cannot be empty.");
+    return res.redirect(returnPath);
+  }
+
+  await db.query(`UPDATE comments SET content = $1 WHERE id = $2`, [content, commentId]);
+  setFlash(req, "success", "Comment updated.");
+  return res.redirect(returnPath);
+});
+
+app.post("/comments/:commentId/delete", requireAuth, async (req, res) => {
+  const commentId = Number(req.params.commentId);
+  const ownedComment = await getOwnedCommentForUser(req.session.user.id, commentId);
+  const fallbackPath = ownedComment?.group_slug ? `/groups/${ownedComment.group_slug}` : "/profile";
+  const returnPath = getSafeReturnPath(req.body.returnTo, fallbackPath);
+
+  if (!ownedComment) {
+    setFlash(req, "error", "You can only delete your own comments.");
+    return res.redirect(returnPath);
+  }
+
+  await db.query(`DELETE FROM comments WHERE id = $1`, [commentId]);
+  setFlash(req, "success", "Comment deleted.");
+  return res.redirect(returnPath);
 });
 
 app.get("/groups/:slug", async (req, res) => {
