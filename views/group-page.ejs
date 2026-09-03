@@ -59,7 +59,7 @@
                 </div>
               <% } %>
 
-              <% if (currentUser) { %>
+              <% if (currentUser && isMember) { %>
                 <form action="/posts/<%= post.id %>/comments" method="POST" class="comment-form">
                   <input type="hidden" name="groupSlug" value="<%= group.slug %>">
                   <textarea
@@ -71,6 +71,8 @@
                   ></textarea>
                   <button type="submit" class="button-19">Comment</button>
                 </form>
+              <% } else if (currentUser && !isMember) { %>
+                <p class="comment-gate mb-0">Join this community to comment on posts.</p>
               <% } else { %>
                 <a href="/login" class="blog-link">Log in to comment</a>
               <% } %>

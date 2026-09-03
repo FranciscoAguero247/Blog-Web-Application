@@ -357,6 +357,11 @@ main{
     text-align: left;
   }
 
+  .comment-gate {
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 0.92rem;
+  }
+
   .post-container {
     width: min(100%, 720px);
     padding: 2rem;

@@ -11,12 +11,18 @@
 <main class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
     <div class="post-container">
         <h1>Create a Post</h1>
-        <p class="text-body-secondary">Choose a community, publish your update, and send it straight into the feed.</p>
+                <p class="text-body-secondary">Choose one of your joined communities, publish your update, and send it straight into the feed.</p>
+
+                <% if (groups.length === 0) { %>
+                    <div class="alert alert-info">
+                        Join a community first, then come back here to publish your first post.
+                    </div>
+                <% } %>
 
         <form action="/posts" method="POST">
             <div class="mb-4">
                 <label class="form-label text-white">Choose Community</label>
-                <select name="groupId" class="form-control bg-dark text-white border-secondary" required>
+                                <select name="groupId" class="form-control bg-dark text-white border-secondary" required <%= groups.length === 0 ? 'disabled' : '' %>>
                     <option value="">Select a group</option>
                     <% groups.forEach(group => { %>
                       <option value="<%= group.id %>"><%= group.name %></option>
@@ -26,11 +32,11 @@
 
             <div class="mb-4">
                 <label class="form-label text-white">Your Content</label>
-                <textarea class="form-control" name="content" rows="4" placeholder="What's happening?" required></textarea>
+                <textarea class="form-control" name="content" rows="4" placeholder="What's happening?" required <%= groups.length === 0 ? 'disabled' : '' %>></textarea>
             </div>
             
             <div class="d-grid">
-                <button type="submit" class="button-19">
+                <button type="submit" class="button-19" <%= groups.length === 0 ? 'disabled' : '' %>>
                     <i class="fa-solid fa-paper-plane"></i> Publish Post
                 </button>
             </div>

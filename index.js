@@ -311,6 +311,20 @@ async function isGroupMember(userId, groupId) {
   return result.rowCount > 0;
 }
 
+async function getWritableGroupForUser(userId, groupSlug) {
+  const group = await getGroupBySlug(groupSlug);
+  if (!group) {
+    return { group: null, error: "That community no longer exists." };
+  }
+
+  const member = await isGroupMember(userId, group.id);
+  if (!member) {
+    return { group: null, error: `Join ${group.name} before posting or commenting.` };
+  }
+
+  return { group, error: null };
+}
+
 async function createPostForGroup({ userId, groupSlug, content }) {
   const group = await getGroupBySlug(groupSlug);
 
@@ -469,12 +483,23 @@ app.post("/groups", requireAuth, async (req, res) => {
   }
 
   try {
-    await db.query(
+    const insertResult = await db.query(
       `
         INSERT INTO groups (name, slug, description, created_by)
         VALUES ($1, $2, $3, $4)
+        RETURNING id, slug
       `,
       [name, slug, description, req.session.user.id]
+    );
+
+    const groupId = insertResult.rows[0].id;
+    await db.query(
+      `
+        INSERT INTO memberships (user_id, group_id)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id, group_id) DO NOTHING
+      `,
+      [req.session.user.id, groupId]
     );
 
     setFlash(req, "success", `${name} is live. Invite people to join and start posting.`);
@@ -508,7 +533,7 @@ app.post("/groups/:slug/join", requireAuth, async (req, res) => {
 });
 
 app.get("/newpost", requireAuth, async (req, res) => {
-  const groups = await getGroups(req.session.user.id);
+  const groups = (await getGroups(req.session.user.id)).filter((group) => group.is_member);
   res.render("newpost.ejs", { theme: "newpost", groups });
 });
 
@@ -532,6 +557,12 @@ app.post("/posts", requireAuth, async (req, res) => {
     return res.redirect("/newpost");
   }
 
+  const canWrite = await isGroupMember(req.session.user.id, group.id);
+  if (!canWrite) {
+    setFlash(req, "error", `Join ${group.name} before posting.`);
+    return res.redirect(`/groups/${group.slug}`);
+  }
+
   await createPostForGroup({
     userId: req.session.user.id,
     groupSlug: group.slug,
@@ -546,9 +577,16 @@ app.post("/posts/:postId/comments", requireAuth, async (req, res) => {
   const postId = Number(req.params.postId);
   const groupSlug = req.body.groupSlug;
   const content = req.body.content?.trim();
+  const legacyCategory = legacyCategoryBySlug.get(groupSlug) || null;
 
   if (!Number.isInteger(postId) || postId <= 0) {
     setFlash(req, "error", "Invalid post selected for comment.");
+    return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/");
+  }
+
+  const { group, error } = await getWritableGroupForUser(req.session.user.id, groupSlug);
+  if (!group) {
+    setFlash(req, "error", error);
     return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/");
   }
 
@@ -557,10 +595,23 @@ app.post("/posts/:postId/comments", requireAuth, async (req, res) => {
     return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/");
   }
 
-  const postResult = await db.query(`SELECT id FROM posts WHERE id = $1 LIMIT 1`, [postId]);
+  const postResult = await db.query(
+    `
+      SELECT posts.id
+      FROM posts
+      WHERE posts.id = $1
+        AND (
+          posts.group_id = $2
+          OR (posts.group_id IS NULL AND posts.group_name = $3)
+          OR ($4::text IS NOT NULL AND posts.group_id IS NULL AND posts.category = $4)
+        )
+      LIMIT 1
+    `,
+    [postId, group.id, group.name, legacyCategory]
+  );
   if (postResult.rowCount === 0) {
     setFlash(req, "error", "The post no longer exists.");
-    return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/");
+    return res.redirect(`/groups/${group.slug}`);
   }
 
   await db.query(
@@ -572,7 +623,7 @@ app.post("/posts/:postId/comments", requireAuth, async (req, res) => {
   );
 
   setFlash(req, "success", "Comment posted.");
-  return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/");
+  return res.redirect(`/groups/${group.slug}`);
 });
 
 app.get("/groups/:slug", async (req, res) => {
@@ -636,6 +687,12 @@ app.post("/submit", requireAuth, async (req, res) => {
     return res.redirect("/newpost");
   }
 
+  const { group: writableGroup, error } = await getWritableGroupForUser(req.session.user.id, groupSlug);
+  if (!writableGroup) {
+    setFlash(req, "error", error);
+    return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/newpost");
+  }
+
   const group = await createPostForGroup({
     userId: req.session.user.id,
     groupSlug,
@@ -658,6 +715,12 @@ app.post("/IsubmitB", requireAuth, async (req, res) => {
     return res.redirect("/groups/batman");
   }
 
+  const { error } = await getWritableGroupForUser(req.session.user.id, "batman");
+  if (error) {
+    setFlash(req, "error", error);
+    return res.redirect("/groups/batman");
+  }
+
   await createPostForGroup({ userId: req.session.user.id, groupSlug: "batman", content });
   setFlash(req, "success", "Your post is live in Batman.");
   return res.redirect("/groups/batman");
@@ -667,6 +730,12 @@ app.post("/IsubmitC", requireAuth, async (req, res) => {
   const content = req.body["IndividualBlogPost"]?.trim();
   if (!content) {
     setFlash(req, "error", "Write something before posting.");
+    return res.redirect("/groups/cars");
+  }
+
+  const { error } = await getWritableGroupForUser(req.session.user.id, "cars");
+  if (error) {
+    setFlash(req, "error", error);
     return res.redirect("/groups/cars");
   }
 
@@ -682,6 +751,12 @@ app.post("/IsubmitS", requireAuth, async (req, res) => {
     return res.redirect("/groups/star-wars");
   }
 
+  const { error } = await getWritableGroupForUser(req.session.user.id, "star-wars");
+  if (error) {
+    setFlash(req, "error", error);
+    return res.redirect("/groups/star-wars");
+  }
+
   await createPostForGroup({ userId: req.session.user.id, groupSlug: "star-wars", content });
   setFlash(req, "success", "Your post is live in Star Wars.");
   return res.redirect("/groups/star-wars");
@@ -691,6 +766,12 @@ app.post("/IsubmitT", requireAuth, async (req, res) => {
   const content = req.body["IndividualBlogPost"]?.trim();
   if (!content) {
     setFlash(req, "error", "Write something before posting.");
+    return res.redirect("/groups/tech");
+  }
+
+  const { error } = await getWritableGroupForUser(req.session.user.id, "tech");
+  if (error) {
+    setFlash(req, "error", error);
     return res.redirect("/groups/tech");
   }
 
