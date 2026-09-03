@@ -68,6 +68,7 @@ async function init() {
       CREATE UNIQUE INDEX IF NOT EXISTS memberships_user_group_idx ON memberships(user_id, group_id);
       CREATE INDEX IF NOT EXISTS posts_group_id_idx ON posts(group_id);
       CREATE INDEX IF NOT EXISTS posts_created_at_idx ON posts(created_at DESC);
+      CREATE INDEX IF NOT EXISTS comments_post_id_idx ON comments(post_id);
     `);
 
     console.log('Database initialized successfully.');

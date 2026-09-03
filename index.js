@@ -112,6 +112,7 @@ async function initializeDatabase() {
     CREATE UNIQUE INDEX IF NOT EXISTS memberships_user_group_idx ON memberships(user_id, group_id);
     CREATE INDEX IF NOT EXISTS posts_group_id_idx ON posts(group_id);
     CREATE INDEX IF NOT EXISTS posts_created_at_idx ON posts(created_at DESC);
+    CREATE INDEX IF NOT EXISTS comments_post_id_idx ON comments(post_id);
   `;
 
   await db.query(schemaSql);
@@ -266,6 +267,39 @@ async function getPostsForGroup(group) {
   );
 
   return result.rows;
+}
+
+async function getCommentsForPostIds(postIds) {
+  if (!postIds.length) {
+    return new Map();
+  }
+
+  const result = await db.query(
+    `
+      SELECT
+        comments.id,
+        comments.post_id,
+        comments.content,
+        comments.created_at,
+        COALESCE(users.username, 'Guest') AS username
+      FROM comments
+      LEFT JOIN users ON users.id = comments.user_id
+      WHERE comments.post_id = ANY($1::int[])
+      ORDER BY comments.created_at ASC
+    `,
+    [postIds]
+  );
+
+  const commentsByPostId = new Map();
+  for (const row of result.rows) {
+    const postId = Number(row.post_id);
+    if (!commentsByPostId.has(postId)) {
+      commentsByPostId.set(postId, []);
+    }
+    commentsByPostId.get(postId).push(row);
+  }
+
+  return commentsByPostId;
 }
 
 async function isGroupMember(userId, groupId) {
@@ -508,6 +542,39 @@ app.post("/posts", requireAuth, async (req, res) => {
   return res.redirect(`/groups/${group.slug}`);
 });
 
+app.post("/posts/:postId/comments", requireAuth, async (req, res) => {
+  const postId = Number(req.params.postId);
+  const groupSlug = req.body.groupSlug;
+  const content = req.body.content?.trim();
+
+  if (!Number.isInteger(postId) || postId <= 0) {
+    setFlash(req, "error", "Invalid post selected for comment.");
+    return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/");
+  }
+
+  if (!content) {
+    setFlash(req, "error", "Write a comment before posting.");
+    return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/");
+  }
+
+  const postResult = await db.query(`SELECT id FROM posts WHERE id = $1 LIMIT 1`, [postId]);
+  if (postResult.rowCount === 0) {
+    setFlash(req, "error", "The post no longer exists.");
+    return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/");
+  }
+
+  await db.query(
+    `
+      INSERT INTO comments (post_id, user_id, content)
+      VALUES ($1, $2, $3)
+    `,
+    [postId, req.session.user.id, content]
+  );
+
+  setFlash(req, "success", "Comment posted.");
+  return res.redirect(groupSlug ? `/groups/${groupSlug}` : "/");
+});
+
 app.get("/groups/:slug", async (req, res) => {
   const group = await getGroupBySlug(req.params.slug);
 
@@ -525,8 +592,15 @@ app.get("/groups/:slug", async (req, res) => {
     req.session.user ? isGroupMember(req.session.user.id, group.id) : Promise.resolve(false),
   ]);
 
+  const postIds = posts.map((post) => Number(post.id));
+  const commentsByPostId = await getCommentsForPostIds(postIds);
+  const postsWithComments = posts.map((post) => ({
+    ...post,
+    comments: commentsByPostId.get(Number(post.id)) || [],
+  }));
+
   const theme = fallbackThemeBySlug[group.slug] || "newpost";
-  return res.render("group-page.ejs", { theme, group, posts, isMember });
+  return res.render("group-page.ejs", { theme, group, posts: postsWithComments, isMember });
 });
 
 app.get("/carsblogpage", (req, res) => {

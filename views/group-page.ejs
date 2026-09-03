@@ -41,7 +41,40 @@
               <strong>@<%= post.username %></strong>
               <span><%= post.created_at.toLocaleString() %></span>
             </div>
-            <p class="mb-0"><%= post.content %></p>
+            <p class="mb-3"><%= post.content %></p>
+
+            <section class="post-comments">
+              <p class="comment-count mb-2"><%= post.comments.length %> comments</p>
+              <% if (post.comments.length > 0) { %>
+                <div class="comment-list mb-3">
+                  <% post.comments.forEach(comment => { %>
+                    <article class="comment-item">
+                      <div class="comment-item-header">
+                        <strong>@<%= comment.username %></strong>
+                        <small><%= comment.created_at.toLocaleString() %></small>
+                      </div>
+                      <p class="mb-0"><%= comment.content %></p>
+                    </article>
+                  <% }) %>
+                </div>
+              <% } %>
+
+              <% if (currentUser) { %>
+                <form action="/posts/<%= post.id %>/comments" method="POST" class="comment-form">
+                  <input type="hidden" name="groupSlug" value="<%= group.slug %>">
+                  <textarea
+                    name="content"
+                    class="form-control bg-dark text-white border-secondary mb-2"
+                    rows="2"
+                    placeholder="Write a comment"
+                    required
+                  ></textarea>
+                  <button type="submit" class="button-19">Comment</button>
+                </form>
+              <% } else { %>
+                <a href="/login" class="blog-link">Log in to comment</a>
+              <% } %>
+            </section>
           </article>
         <% }) %>
       <% } else { %>
