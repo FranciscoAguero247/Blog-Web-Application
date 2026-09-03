@@ -6,56 +6,6 @@
   <source src="/public/images/Batman SLow Glowing Logo Live Wallpaper.mp4" type="video/mp4">
 </video>
 <div class="center-div-block" id="container">
-  <div class="internal-blog-post" id="originalDiv">
-    <% if (locals.blogPost ) { %> 
-      <h5 >Your post is:</h5>
-        <div id="internal-post">
-          <p id="edit" class="card-text"> <%= blogPost %></p>
-        </div>
-
-        <div class="bottom-right btn-group">
-        <div>
-          <button id="cloneButton" class="fa-solid fa-plus plus-button btn btn-secondary clone-btn" role="button"></button>
-          
-          <button type="submit" id="edit-button" class="btn btn-primary">Edit Post</button>
-          <button type="submit" id="end-editing" class="btn btn-primary">Done</button>
-        
-          <button id="remove-button" class="fa-solid fa-minus minus-button btn btn-secondary" role="button"></button>
-        </div>
-        </div>
-
-      <% } else if(locals.post) { %>
-        <h5 >Your post is:</h5>
-        <div id="external-post">
-          <p id="edit" class="card-text" id="post-value"> <%= post %></p>
-       
-        <div class="bottom-right btn-group">
-        <div>
-          <button id="cloneButton" class="fa-solid fa-plus plus-button btn btn-secondary clone-btn" role="button"></button>
-          
-          <button type="submit" id="edit-button" class="btn btn-primary">Edit Post</button>
-          <button type="submit" id="end-editing" class="btn btn-primary">Done</button>
-        
-          <button id="remove-button" class="fa-solid fa-minus minus-button btn btn-secondary" role="button"></button>
-        </div>
-        </div>
-
-        <% } else{ %>  
-        <p><b>Post to blog</b></p>
-          <div class="post-div-block">
-            <form action="/IsubmitB" method="POST" id="form-div">
-              <input class="input-form" type="text button" id="name" name="IndividualBlogPost" placeholder="Type in a post" />
-              <button class="button-19" class="mobile" role="button" id="submit-button"><i>Post</i></button>
-            </form>
-            <div class="hype-container">
-            <button class="hype-btn" onclick="triggerHype(this)">
-              <i class="fa-solid fa-fire"></i> Hype 
-              <span class="hype-count">0</span>
-            </button>
-          </div>
-        </div>
-      <% } %>
-      </div>
-  </div>
+  
 </div>
 <%- include("partials/footer.ejs") %>
