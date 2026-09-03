@@ -1,0 +1,107 @@
+<%- include("partials/header.ejs") %>
+
+<video autoplay muted loop id="background-video">
+  <source src="/public/images/3 color Neon frame Video Background - lyric video Frame for Edits - Background video effects.mp4" type="video/mp4">
+</video>
+
+<a href="/" class="back-btn">
+  <i class="fa-solid fa-chevron-left"></i> Back to Hub
+</a>
+
+<section class="container pb-5">
+  <div class="profile-grid">
+    <aside class="profile-sidebar text-start">
+      <p class="community-slug">Profile</p>
+      <h1>@<%= currentUser.username %></h1>
+      <p class="mb-4">Your current MVP dashboard: joined communities, authored posts, and comment history.</p>
+
+      <div class="profile-stat">
+        <span>Joined groups</span>
+        <strong><%= joinedGroups.length %></strong>
+      </div>
+      <div class="profile-stat">
+        <span>Posts</span>
+        <strong><%= userPosts.length %></strong>
+      </div>
+      <div class="profile-stat">
+        <span>Comments</span>
+        <strong><%= userComments.length %></strong>
+      </div>
+    </aside>
+
+    <div class="panel-stack">
+      <section class="profile-panel text-start">
+        <div class="feed-card-header">
+          <h2 class="mb-0">Joined Communities</h2>
+          <a href="/groups/new" class="profile-link">Create another</a>
+        </div>
+        <% if (joinedGroups.length > 0) { %>
+          <div class="profile-list">
+            <% joinedGroups.forEach(group => { %>
+              <article class="profile-item">
+                <div class="feed-card-header">
+                  <strong><%= group.name %></strong>
+                  <a href="/groups/<%= group.slug %>" class="profile-link">Open</a>
+                </div>
+                <p class="mb-0"><%= group.description || 'No description yet.' %></p>
+              </article>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <p class="mb-0">You have not joined any communities yet.</p>
+        <% } %>
+      </section>
+
+      <section class="profile-panel text-start">
+        <div class="feed-card-header">
+          <h2 class="mb-0">Your Posts</h2>
+          <a href="/newpost" class="profile-link">Write a post</a>
+        </div>
+        <% if (userPosts.length > 0) { %>
+          <div class="profile-list">
+            <% userPosts.forEach(post => { %>
+              <article class="profile-item">
+                <div class="feed-card-header">
+                  <strong><%= post.group_name %></strong>
+                  <% if (post.group_slug) { %>
+                    <a href="/groups/<%= post.group_slug %>" class="profile-link">View thread</a>
+                  <% } %>
+                </div>
+                <p class="mb-2"><%= post.content %></p>
+                <small class="text-white-50"><%= post.created_at.toLocaleString() %></small>
+              </article>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <p class="mb-0">No posts yet. Join a group and publish your first update.</p>
+        <% } %>
+      </section>
+
+      <section class="profile-panel text-start">
+        <div class="feed-card-header">
+          <h2 class="mb-0">Recent Comments</h2>
+        </div>
+        <% if (userComments.length > 0) { %>
+          <div class="profile-list">
+            <% userComments.forEach(comment => { %>
+              <article class="profile-item">
+                <div class="feed-card-header">
+                  <strong><%= comment.group_name %></strong>
+                  <% if (comment.group_slug) { %>
+                    <a href="/groups/<%= comment.group_slug %>" class="profile-link">Open group</a>
+                  <% } %>
+                </div>
+                <p class="mb-2"><%= comment.content %></p>
+                <small class="text-white-50"><%= comment.created_at.toLocaleString() %></small>
+              </article>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <p class="mb-0">No comments yet. Join a conversation to see activity here.</p>
+        <% } %>
+      </section>
+    </div>
+  </div>
+</section>
+
+<%- include("partials/footer.ejs") %>

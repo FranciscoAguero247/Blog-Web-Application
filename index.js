@@ -235,6 +235,59 @@ async function getRecentPosts(limit = 8) {
   return result.rows;
 }
 
+async function getProfileSummary(userId) {
+  const [groupResult, postResult, commentResult] = await Promise.all([
+    db.query(
+      `
+        SELECT groups.id, groups.name, groups.slug, groups.description
+        FROM memberships
+        INNER JOIN groups ON groups.id = memberships.group_id
+        WHERE memberships.user_id = $1
+        ORDER BY memberships.joined_at DESC
+      `,
+      [userId]
+    ),
+    db.query(
+      `
+        SELECT
+          posts.id,
+          posts.content,
+          posts.created_at,
+          COALESCE(groups.name, posts.group_name, posts.category, 'General') AS group_name,
+          COALESCE(groups.slug, '') AS group_slug
+        FROM posts
+        LEFT JOIN groups ON groups.id = posts.group_id
+        WHERE posts.user_id = $1
+        ORDER BY posts.created_at DESC
+      `,
+      [userId]
+    ),
+    db.query(
+      `
+        SELECT
+          comments.id,
+          comments.content,
+          comments.created_at,
+          posts.id AS post_id,
+          COALESCE(groups.name, posts.group_name, posts.category, 'General') AS group_name,
+          COALESCE(groups.slug, '') AS group_slug
+        FROM comments
+        INNER JOIN posts ON posts.id = comments.post_id
+        LEFT JOIN groups ON groups.id = posts.group_id
+        WHERE comments.user_id = $1
+        ORDER BY comments.created_at DESC
+      `,
+      [userId]
+    ),
+  ]);
+
+  return {
+    groups: groupResult.rows,
+    posts: postResult.rows,
+    comments: commentResult.rows,
+  };
+}
+
 async function getGroupBySlug(slug) {
   const result = await db.query(
     `SELECT id, name, slug, description, created_by, created_at FROM groups WHERE slug = $1`,
@@ -384,6 +437,16 @@ app.get("/", async (req, res) => {
 
 app.get("/about", (req, res) => {
   res.render("about.ejs", { theme: "newpost" });
+});
+
+app.get("/profile", requireAuth, async (req, res) => {
+  const summary = await getProfileSummary(req.session.user.id);
+  res.render("profile.ejs", {
+    theme: "newpost",
+    joinedGroups: summary.groups,
+    userPosts: summary.posts,
+    userComments: summary.comments,
+  });
 });
 
 app.get("/signup", (req, res) => {

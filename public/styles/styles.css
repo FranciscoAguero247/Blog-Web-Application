@@ -158,7 +158,8 @@ main{
 }
 
   .nav-user,
-  .nav-logout {
+  .nav-logout,
+  .nav-user-link {
     color: white;
     font-size: 18px;
     font-weight: 500;
@@ -172,6 +173,10 @@ main{
     background: transparent;
     border: none;
     padding: 0;
+  }
+
+  .nav-user-link {
+    text-decoration: none;
   }
 
 /* PRO LEVEL BLOG LINK BUTTON */
@@ -372,6 +377,57 @@ main{
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
   }
 
+  .profile-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .profile-sidebar,
+  .profile-panel {
+    background: rgba(2, 10, 20, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 24px;
+    padding: 1.5rem;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  }
+
+  .profile-stat {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: rgba(255, 255, 255, 0.76);
+    padding: 0.65rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .profile-stat:last-child {
+    border-bottom: none;
+  }
+
+  .profile-list {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .profile-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    padding: 1rem;
+  }
+
+  .profile-link {
+    color: var(--neon-cyan) !important;
+    text-decoration: none;
+  }
+
+  .panel-stack {
+    display: grid;
+    gap: 1.5rem;
+  }
+
   @media (max-width: 768px) {
     .stats-shell {
       grid-template-columns: 1fr;
@@ -384,6 +440,10 @@ main{
     .nav-links {
       flex-wrap: wrap;
       justify-content: center;
+    }
+
+    .profile-grid {
+      grid-template-columns: 1fr;
     }
   }
 

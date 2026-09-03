@@ -24,7 +24,7 @@
           <li><a href="/newpost">Create Post</a></li>
           <li><a href="/groups/new">Create Group</a></li>
           <% if (currentUser) { %>
-            <li><span class="nav-user">@<%= currentUser.username %></span></li>
+            <li><a href="/profile" class="nav-user-link">@<%= currentUser.username %></a></li>
             <li>
               <form action="/logout" method="POST" class="nav-form">
                 <button type="submit" class="nav-logout">Log Out</button>
