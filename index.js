@@ -56,10 +56,23 @@ const db = new PG.Client({
   port: Number(process.env.DB_PORT || 5432),
 });
 
-async function initializeDatabase() {
-  await db.connect();
+let databaseInitialized = false;
+let databaseInitializing;
 
-  const schemaSql = `
+async function initializeDatabase() {
+  if (databaseInitialized) {
+    return;
+  }
+
+  if (databaseInitializing) {
+    await databaseInitializing;
+    return;
+  }
+
+  databaseInitializing = (async () => {
+    await db.connect();
+
+    const schemaSql = `
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       username VARCHAR(80) NOT NULL UNIQUE,
@@ -115,10 +128,18 @@ async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS comments_post_id_idx ON comments(post_id);
   `;
 
-  await db.query(schemaSql);
-  await seedDefaultGroups();
-  await backfillLegacyPosts();
-  console.log("Database schema verified");
+    await db.query(schemaSql);
+    await seedDefaultGroups();
+    await backfillLegacyPosts();
+    databaseInitialized = true;
+    console.log("Database schema verified");
+  })();
+
+  try {
+    await databaseInitializing;
+  } finally {
+    databaseInitializing = undefined;
+  }
 }
 
 async function seedDefaultGroups() {
@@ -974,7 +995,7 @@ app.post("/IsubmitT", requireAuth, async (req, res) => {
 async function startServer() {
   try {
     await initializeDatabase();
-    app.listen(port, () => {
+    return app.listen(port, () => {
       console.log(`Server running on port ${port}`);
     });
   } catch (error) {
@@ -983,4 +1004,19 @@ async function startServer() {
   }
 }
 
-startServer();
+async function closeDatabase() {
+  if (!databaseInitialized) {
+    return;
+  }
+
+  await db.end();
+  databaseInitialized = false;
+}
+
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;
+
+if (isDirectRun) {
+  startServer();
+}
+
+export { app, db, initializeDatabase, closeDatabase, startServer };
