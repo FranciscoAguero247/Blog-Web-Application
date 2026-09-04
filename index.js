@@ -463,6 +463,24 @@ async function getOwnedPostForUser(userId, postId) {
   return result.rows[0] || null;
 }
 
+async function getGroupPostForModerator(groupSlug, postId) {
+  const result = await db.query(
+    `
+      SELECT
+        posts.id,
+        posts.group_id,
+        COALESCE(groups.slug, '') AS group_slug
+      FROM posts
+      INNER JOIN groups ON groups.id = posts.group_id
+      WHERE posts.id = $1 AND groups.slug = $2
+      LIMIT 1
+    `,
+    [postId, groupSlug]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function getOwnedCommentForUser(userId, commentId) {
   const result = await db.query(
     `
@@ -478,6 +496,25 @@ async function getOwnedCommentForUser(userId, commentId) {
       LIMIT 1
     `,
     [commentId, userId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function getGroupCommentForModerator(groupSlug, commentId) {
+  const result = await db.query(
+    `
+      SELECT
+        comments.id,
+        comments.post_id,
+        COALESCE(groups.slug, '') AS group_slug
+      FROM comments
+      INNER JOIN posts ON posts.id = comments.post_id
+      INNER JOIN groups ON groups.id = posts.group_id
+      WHERE comments.id = $1 AND groups.slug = $2
+      LIMIT 1
+    `,
+    [commentId, groupSlug]
   );
 
   return result.rows[0] || null;
@@ -761,6 +798,61 @@ app.post("/groups/:slug/edit", requireAuth, async (req, res) => {
     setFlash(req, "error", "Group name is already in use.");
     return res.redirect(`/groups/${group.slug}/edit`);
   }
+});
+
+app.post("/groups/:slug/posts/:postId/delete", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+  const postId = Number(req.params.postId);
+  const fallbackPath = group ? `/groups/${group.slug}` : "/";
+  const returnPath = getSafeReturnPath(req.body.returnTo, fallbackPath);
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect(returnPath);
+  }
+
+  if (!isGroupCreator(group, req.session.user.id)) {
+    setFlash(req, "error", "Only the group creator can moderate this community.");
+    return res.redirect(returnPath);
+  }
+
+  const moderatedPost = await getGroupPostForModerator(group.slug, postId);
+  if (!moderatedPost) {
+    setFlash(req, "error", "The post no longer exists in this community.");
+    return res.redirect(returnPath);
+  }
+
+  await db.query(`DELETE FROM comments WHERE post_id = $1`, [postId]);
+  await db.query(`DELETE FROM posts WHERE id = $1`, [postId]);
+  setFlash(req, "success", "Post removed from the community.");
+  return res.redirect(returnPath);
+});
+
+app.post("/groups/:slug/comments/:commentId/delete", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+  const commentId = Number(req.params.commentId);
+  const fallbackPath = group ? `/groups/${group.slug}` : "/";
+  const returnPath = getSafeReturnPath(req.body.returnTo, fallbackPath);
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect(returnPath);
+  }
+
+  if (!isGroupCreator(group, req.session.user.id)) {
+    setFlash(req, "error", "Only the group creator can moderate this community.");
+    return res.redirect(returnPath);
+  }
+
+  const moderatedComment = await getGroupCommentForModerator(group.slug, commentId);
+  if (!moderatedComment) {
+    setFlash(req, "error", "The comment no longer exists in this community.");
+    return res.redirect(returnPath);
+  }
+
+  await db.query(`DELETE FROM comments WHERE id = $1`, [commentId]);
+  setFlash(req, "success", "Comment removed from the community.");
+  return res.redirect(returnPath);
 });
 
 app.get("/newpost", requireAuth, async (req, res) => {

@@ -12,9 +12,14 @@ const groupName = `Integration Group ${runId}`;
 const secondUserEmail = `member-${runId}@example.com`;
 const secondUsername = `member-${runId}`;
 const secondPassword = "Pass1234!";
+const moderationUserEmail = `moderator-member-${runId}@example.com`;
+const moderationUsername = `moderator-member-${runId}`;
+const moderationPassword = "Pass1234!";
 let createdGroupSlug = "";
 let createdPostId = 0;
 let createdCommentId = 0;
+let memberPostId = 0;
+let memberCommentId = 0;
 
 async function cleanup() {
   if (createdCommentId) {
@@ -24,6 +29,11 @@ async function cleanup() {
   if (createdPostId) {
     await db.query(`DELETE FROM comments WHERE post_id = $1`, [createdPostId]);
     await db.query(`DELETE FROM posts WHERE id = $1`, [createdPostId]);
+  }
+
+  if (memberPostId) {
+    await db.query(`DELETE FROM comments WHERE post_id = $1`, [memberPostId]);
+    await db.query(`DELETE FROM posts WHERE id = $1`, [memberPostId]);
   }
 
   if (createdGroupSlug) {
@@ -36,6 +46,7 @@ async function cleanup() {
 
   await db.query(`DELETE FROM users WHERE email = $1`, [userEmail]);
   await db.query(`DELETE FROM users WHERE email = $1`, [secondUserEmail]);
+  await db.query(`DELETE FROM users WHERE email = $1`, [moderationUserEmail]);
 }
 
 test("MVP community flow works end to end", async (t) => {
@@ -245,6 +256,79 @@ test("MVP community flow works end to end", async (t) => {
       [createdGroupSlug, secondUserEmail]
     );
     assert.equal(memberCheck.rowCount, 0);
+  });
+
+  await t.test("group creator can remove a member post and comment", async () => {
+    const memberAgent = request.agent(app);
+
+    const signupResponse = await memberAgent
+      .post("/signup")
+      .type("form")
+      .send({ username: moderationUsername, email: moderationUserEmail, password: moderationPassword });
+    assert.equal(signupResponse.status, 302);
+
+    const joinResponse = await memberAgent.post(`/groups/${createdGroupSlug}/join`).type("form").send({});
+    assert.equal(joinResponse.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+
+    const postResponse = await memberAgent
+      .post("/posts")
+      .type("form")
+      .send({ groupId: groupResult.rows[0].id, content: "Member moderation test post" });
+    assert.equal(postResponse.status, 302);
+
+    const postResult = await db.query(
+      `
+        SELECT posts.id
+        FROM posts
+        INNER JOIN users ON users.id = posts.user_id
+        WHERE users.email = $1 AND posts.content = $2
+        ORDER BY posts.created_at DESC
+        LIMIT 1
+      `,
+      [moderationUserEmail, "Member moderation test post"]
+    );
+    memberPostId = postResult.rows[0].id;
+
+    const commentResponse = await memberAgent
+      .post(`/posts/${memberPostId}/comments`)
+      .type("form")
+      .send({ groupSlug: createdGroupSlug, content: "Member moderation test comment" });
+    assert.equal(commentResponse.status, 302);
+
+    const commentResult = await db.query(
+      `
+        SELECT comments.id
+        FROM comments
+        INNER JOIN users ON users.id = comments.user_id
+        WHERE users.email = $1 AND comments.content = $2
+        ORDER BY comments.created_at DESC
+        LIMIT 1
+      `,
+      [moderationUserEmail, "Member moderation test comment"]
+    );
+    memberCommentId = commentResult.rows[0].id;
+
+    const creatorPostRemoval = await agent
+      .post(`/groups/${createdGroupSlug}/posts/${memberPostId}/delete`)
+      .type("form")
+      .send({ returnTo: `/groups/${createdGroupSlug}` });
+    assert.equal(creatorPostRemoval.status, 302);
+
+    const creatorCommentRemoval = await agent
+      .post(`/groups/${createdGroupSlug}/comments/${memberCommentId}/delete`)
+      .type("form")
+      .send({ returnTo: `/groups/${createdGroupSlug}` });
+    assert.equal(creatorCommentRemoval.status, 302);
+
+    const removedPost = await db.query(`SELECT 1 FROM posts WHERE id = $1`, [memberPostId]);
+    const removedComment = await db.query(`SELECT 1 FROM comments WHERE id = $1`, [memberCommentId]);
+    assert.equal(removedPost.rowCount, 0);
+    assert.equal(removedComment.rowCount, 0);
+
+    memberPostId = 0;
+    memberCommentId = 0;
   });
 
   await t.test("creator cannot leave own group", async () => {

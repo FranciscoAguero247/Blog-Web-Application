@@ -62,6 +62,13 @@
                   <button type="submit" class="button-19 owner-button danger">Delete Post</button>
                 </form>
               </div>
+            <% } else if (currentUser && isCreator) { %>
+              <div class="owner-tools mb-3">
+                <form action="/groups/<%= group.slug %>/posts/<%= post.id %>/delete" method="POST" class="owner-form-inline">
+                  <input type="hidden" name="returnTo" value="/groups/<%= group.slug %>">
+                  <button type="submit" class="button-19 owner-button danger">Remove Post</button>
+                </form>
+              </div>
             <% } %>
 
             <section class="post-comments">
@@ -85,6 +92,13 @@
                           <form action="/comments/<%= comment.id %>/delete" method="POST" class="owner-form-inline">
                             <input type="hidden" name="returnTo" value="/groups/<%= group.slug %>">
                             <button type="submit" class="button-19 owner-button danger">Delete Comment</button>
+                          </form>
+                        </div>
+                      <% } else if (currentUser && isCreator) { %>
+                        <div class="owner-tools owner-tools-compact mt-3">
+                          <form action="/groups/<%= group.slug %>/comments/<%= comment.id %>/delete" method="POST" class="owner-form-inline">
+                            <input type="hidden" name="returnTo" value="/groups/<%= group.slug %>">
+                            <button type="submit" class="button-19 owner-button danger">Remove Comment</button>
                           </form>
                         </div>
                       <% } %>
