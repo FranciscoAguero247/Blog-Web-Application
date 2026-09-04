@@ -1245,4 +1245,11 @@ if (isDirectRun) {
   startServer();
 }
 
+initializeDatabase().catch((error) => {
+  console.error("Failed to initialize database:", error);
+  process.exit(1);
+});
+
+export default app;
+
 export { app, db, initializeDatabase, closeDatabase, startServer };
