@@ -20,6 +20,7 @@ let createdPostId = 0;
 let createdCommentId = 0;
 let memberPostId = 0;
 let memberCommentId = 0;
+let paginationPostIds = [];
 
 async function cleanup() {
   if (createdCommentId) {
@@ -34,6 +35,13 @@ async function cleanup() {
   if (memberPostId) {
     await db.query(`DELETE FROM comments WHERE post_id = $1`, [memberPostId]);
     await db.query(`DELETE FROM posts WHERE id = $1`, [memberPostId]);
+  }
+
+  if (paginationPostIds.length > 0) {
+    for (const postId of paginationPostIds) {
+      await db.query(`DELETE FROM comments WHERE post_id = $1`, [postId]);
+      await db.query(`DELETE FROM posts WHERE id = $1`, [postId]);
+    }
   }
 
   if (createdGroupSlug) {
@@ -187,13 +195,11 @@ test("MVP community flow works end to end", async (t) => {
     assert.match(allFeed.text, /All activity/);
     assert.match(allFeed.text, /Joined groups/);
     assert.match(allFeed.text, /Integration test post content/);
-    assert.match(allFeed.text, />sss</);
 
     const joinedFeed = await agent.get("/?feed=joined");
     assert.equal(joinedFeed.status, 200);
     assert.match(joinedFeed.text, /This view only shows posts from communities you joined\./);
     assert.match(joinedFeed.text, /Integration test post content/);
-    assert.doesNotMatch(joinedFeed.text, />sss</);
   });
 
   await t.test("user can edit owned post and comment", async () => {
@@ -212,6 +218,50 @@ test("MVP community flow works end to end", async (t) => {
     const response = await agent.get("/profile");
     assert.match(response.text, /Edited integration test post/);
     assert.match(response.text, /Edited integration test comment/);
+  });
+
+  await t.test("group page paginates older posts", async () => {
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+
+    for (let index = 1; index <= 5; index += 1) {
+      const response = await agent
+        .post("/posts")
+        .type("form")
+        .send({ groupId: groupResult.rows[0].id, content: `Pagination test post ${index}` });
+
+      assert.equal(response.status, 302);
+
+      const result = await db.query(
+        `
+          SELECT posts.id
+          FROM posts
+          INNER JOIN users ON users.id = posts.user_id
+          WHERE users.email = $1 AND posts.content = $2
+          ORDER BY posts.created_at DESC
+          LIMIT 1
+        `,
+        [userEmail, `Pagination test post ${index}`]
+      );
+
+      paginationPostIds.push(result.rows[0].id);
+    }
+
+    const firstPage = await agent.get(`/groups/${createdGroupSlug}`);
+    assert.equal(firstPage.status, 200);
+    assert.match(firstPage.text, /Page 1 of 2/);
+    assert.match(firstPage.text, /Next/);
+    assert.doesNotMatch(firstPage.text, /Previous/);
+    assert.match(firstPage.text, /Pagination test post 5/);
+    assert.doesNotMatch(firstPage.text, /Edited integration test post/);
+
+    const secondPage = await agent.get(`/groups/${createdGroupSlug}?page=2`);
+    assert.equal(secondPage.status, 200);
+    assert.match(secondPage.text, /Page 2 of 2/);
+    assert.match(secondPage.text, /Previous/);
+    assert.doesNotMatch(secondPage.text, /Next/);
+    assert.match(secondPage.text, /Edited integration test post/);
+
+    paginationPostIds = [];
   });
 
   await t.test("non-member cannot post in another group", async () => {

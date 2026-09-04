@@ -332,9 +332,27 @@ async function getGroupBySlug(slug) {
   return result.rows[0] || null;
 }
 
-async function getPostsForGroup(group) {
+async function getGroupPostCount(group) {
   const legacyCategory = legacyCategoryBySlug.get(group.slug) || null;
-  const params = [group.id, group.name, legacyCategory];
+  const result = await db.query(
+    `
+      SELECT COUNT(*)::int AS total_count
+      FROM posts
+      WHERE posts.group_id = $1
+         OR (posts.group_id IS NULL AND posts.group_name = $2)
+         OR ($3::text IS NOT NULL AND posts.group_id IS NULL AND posts.category = $3)
+    `,
+    [group.id, group.name, legacyCategory]
+  );
+
+  return result.rows[0]?.total_count || 0;
+}
+
+async function getPostsForGroup(group, page = 1, pageSize = GROUP_POSTS_PER_PAGE) {
+  const legacyCategory = legacyCategoryBySlug.get(group.slug) || null;
+  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+  const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : GROUP_POSTS_PER_PAGE;
+  const offset = (safePage - 1) * safePageSize;
 
   const result = await db.query(
     `
@@ -352,8 +370,10 @@ async function getPostsForGroup(group) {
          OR (posts.group_id IS NULL AND posts.group_name = $2)
          OR ($3::text IS NOT NULL AND posts.group_id IS NULL AND posts.category = $3)
       ORDER BY posts.created_at DESC
+      LIMIT $4
+      OFFSET $5
     `,
-    params
+    [group.id, group.name, legacyCategory, safePageSize, offset]
   );
 
   return result.rows;
@@ -532,6 +552,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 const port = Number(process.env.PORT || 3000);
+const GROUP_POSTS_PER_PAGE = 5;
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(
@@ -1038,11 +1059,16 @@ app.get("/groups/:slug", async (req, res) => {
     });
   }
 
-  const [posts, isMember] = await Promise.all([
-    getPostsForGroup(group),
+  const requestedPage = Number.parseInt(req.query.page, 10);
+  const initialPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const [totalCount, isMember] = await Promise.all([
+    getGroupPostCount(group),
     req.session.user ? isGroupMember(req.session.user.id, group.id) : Promise.resolve(false),
   ]);
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / GROUP_POSTS_PER_PAGE));
+  const currentPage = Math.min(initialPage, totalPages);
+  const posts = await getPostsForGroup(group, currentPage);
   const isCreator = req.session.user ? isGroupCreator(group, req.session.user.id) : false;
 
   const postIds = posts.map((post) => Number(post.id));
@@ -1053,7 +1079,17 @@ app.get("/groups/:slug", async (req, res) => {
   }));
 
   const theme = fallbackThemeBySlug[group.slug] || "newpost";
-  return res.render("group-page.ejs", { theme, group, posts: postsWithComments, isMember, isCreator });
+  return res.render("group-page.ejs", {
+    theme,
+    group,
+    posts: postsWithComments,
+    isMember,
+    isCreator,
+    currentPage,
+    totalPages,
+    hasPreviousPage: currentPage > 1,
+    hasNextPage: currentPage < totalPages,
+  });
 });
 
 app.get("/carsblogpage", (req, res) => {

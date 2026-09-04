@@ -127,6 +127,19 @@
             </section>
           </article>
         <% }) %>
+        <% if (totalPages > 1) { %>
+          <nav class="feed-filter-row justify-content-between align-items-center mt-4" aria-label="Group post pages">
+            <span class="text-white-50">Page <%= currentPage %> of <%= totalPages %></span>
+            <div class="d-flex gap-3">
+              <% if (hasPreviousPage) { %>
+                <a href="/groups/<%= group.slug %>?page=<%= currentPage - 1 %>" class="feed-filter-link">Previous</a>
+              <% } %>
+              <% if (hasNextPage) { %>
+                <a href="/groups/<%= group.slug %>?page=<%= currentPage + 1 %>" class="feed-filter-link">Next</a>
+              <% } %>
+            </div>
+          </nav>
+        <% } %>
       <% } else { %>
         <div class="feed-card text-start">
           <p class="mb-0">No posts yet. Start the conversation and define what this group becomes.</p>
