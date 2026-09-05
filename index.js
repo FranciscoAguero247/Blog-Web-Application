@@ -7,6 +7,7 @@ import PG from "pg";
 import dotenv from "dotenv";
 import session from "express-session";
 import bcrypt from "bcryptjs";
+import connectPgSimple from "connect-pg-simple";
 import { supabaseSessionMiddleware } from "./lib/supabase/middleware.js";
 
 dotenv.config({ path: ".env.local" });
@@ -50,10 +51,29 @@ const fallbackThemeBySlug = {
   tech: "tech",
 };
 
+const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+
+function getSessionSecret() {
+  const secret = process.env.SESSION_SECRET;
+  if (isProduction && !secret) {
+    throw new Error("SESSION_SECRET is required in production.");
+  }
+
+  return secret || "development-session-secret";
+}
+
 function getDatabaseConfig() {
+  if (isProduction && !process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required in production.");
+  }
+
+  const connectionTimeoutMillis = Number(process.env.DB_CONNECT_TIMEOUT_MS || 3000);
+
   if (process.env.DATABASE_URL) {
     return {
       connectionString: process.env.DATABASE_URL,
+      connectionTimeoutMillis,
+      max: Number(process.env.DB_POOL_MAX || 5),
       ssl:
         process.env.DB_SSL === "true" || process.env.VERCEL
           ? { rejectUnauthorized: false }
@@ -67,6 +87,8 @@ function getDatabaseConfig() {
     database: process.env.DB_NAME || "blog_web_app",
     password: process.env.DB_PASSWORD || "postgres",
     port: Number(process.env.DB_PORT || 5432),
+    connectionTimeoutMillis,
+    max: Number(process.env.DB_POOL_MAX || 5),
   };
 }
 
@@ -567,14 +589,35 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const GROUP_POSTS_PER_PAGE = 5;
+const PgSession = connectPgSimple(session);
 
 app.use(bodyParser.urlencoded({ extended: false }));
+
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
+
+const sessionConfig = {
+  secret: getSessionSecret(),
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProduction,
+  },
+};
+
+if (isProduction) {
+  sessionConfig.store = new PgSession({
+    pool: db,
+    tableName: "user_sessions",
+    createTableIfMissing: true,
+  });
+}
+
 app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "development-session-secret",
-    resave: false,
-    saveUninitialized: false,
-  })
+  session(sessionConfig)
 );
 app.use('/public', express.static('public'));
 
