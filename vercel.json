@@ -4,7 +4,10 @@
         {
             "src": "./index.js",
             "use": "@vercel/node",
-            "config": { "nodeVersion": "24.x" }
+            "config": {
+                "nodeVersion": "24.x",
+                "maxDuration": 60
+            }
         }
     ],
     "routes": [

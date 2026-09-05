@@ -52,6 +52,7 @@ const fallbackThemeBySlug = {
 };
 
 const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+const shouldRunLegacyBackfill = process.env.RUN_LEGACY_BACKFILL === "true" || !isProduction;
 
 function getSessionSecret() {
   const secret = process.env.SESSION_SECRET;
@@ -108,6 +109,7 @@ async function initializeDatabase() {
   }
 
   databaseInitializing = (async () => {
+    const initStartedAt = Date.now();
     const schemaSql = `
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -165,10 +167,31 @@ async function initializeDatabase() {
   `;
 
     await db.query(schemaSql);
+    const schemaDurationMs = Date.now() - initStartedAt;
+
+    const seedStartedAt = Date.now();
     await seedDefaultGroups();
-    await backfillLegacyPosts();
+    const seedDurationMs = Date.now() - seedStartedAt;
+
+    let backfillDurationMs = 0;
+    if (shouldRunLegacyBackfill) {
+      const backfillStartedAt = Date.now();
+      await backfillLegacyPosts();
+      backfillDurationMs = Date.now() - backfillStartedAt;
+    }
+
     databaseInitialized = true;
-    console.log("Database schema verified");
+    const totalDurationMs = Date.now() - initStartedAt;
+    console.log(
+      "Database schema verified",
+      {
+        schemaDurationMs,
+        seedDurationMs,
+        backfillDurationMs,
+        shouldRunLegacyBackfill,
+        totalDurationMs,
+      }
+    );
   })();
 
   try {
