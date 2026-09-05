@@ -22,6 +22,7 @@
       <div class="hero-actions d-flex flex-wrap gap-3">
         <% if (currentUser && isCreator) { %>
           <a href="/groups/<%= group.slug %>/edit" class="blog-link">Manage Group</a>
+          <a href="/groups/<%= group.slug %>/moderation" class="blog-link">Moderation Queue</a>
         <% } %>
         <% if (currentUser && !isMember) { %>
           <form action="/groups/<%= group.slug %>/join" method="POST">
@@ -62,6 +63,12 @@
                   <button type="submit" class="button-19 owner-button danger">Delete Post</button>
                 </form>
               </div>
+            <% } else if (currentUser && isMember && !isCreator) { %>
+              <form action="/groups/<%= group.slug %>/posts/<%= post.id %>/report" method="POST" class="owner-form-inline mb-3">
+                <input type="hidden" name="returnTo" value="/groups/<%= group.slug %>">
+                <input type="hidden" name="reason" value="Reported from group page">
+                <button type="submit" class="button-19 owner-button danger">Report Post</button>
+              </form>
             <% } else if (currentUser && isCreator) { %>
               <div class="owner-tools mb-3">
                 <form action="/groups/<%= group.slug %>/posts/<%= post.id %>/delete" method="POST" class="owner-form-inline">
@@ -94,6 +101,12 @@
                             <button type="submit" class="button-19 owner-button danger">Delete Comment</button>
                           </form>
                         </div>
+                      <% } else if (currentUser && isMember && !isCreator) { %>
+                        <form action="/groups/<%= group.slug %>/comments/<%= comment.id %>/report" method="POST" class="owner-form-inline mt-3">
+                          <input type="hidden" name="returnTo" value="/groups/<%= group.slug %>">
+                          <input type="hidden" name="reason" value="Reported from group page">
+                          <button type="submit" class="button-19 owner-button danger">Report Comment</button>
+                        </form>
                       <% } else if (currentUser && isCreator) { %>
                         <div class="owner-tools owner-tools-compact mt-3">
                           <form action="/groups/<%= group.slug %>/comments/<%= comment.id %>/delete" method="POST" class="owner-form-inline">

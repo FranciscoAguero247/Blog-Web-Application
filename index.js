@@ -154,6 +154,24 @@ async function initializeDatabase() {
       joined_at TIMESTAMP DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS content_reports (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER NOT NULL,
+      reporter_id INTEGER NOT NULL,
+      post_id INTEGER,
+      comment_id INTEGER,
+      reason VARCHAR(120) NOT NULL,
+      details TEXT,
+      status VARCHAR(20) NOT NULL DEFAULT 'open',
+      reviewed_by INTEGER,
+      reviewed_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW(),
+      CONSTRAINT report_target_check CHECK (
+        (CASE WHEN post_id IS NULL THEN 0 ELSE 1 END) +
+        (CASE WHEN comment_id IS NULL THEN 0 ELSE 1 END) = 1
+      )
+    );
+
     ALTER TABLE posts ADD COLUMN IF NOT EXISTS user_id INTEGER;
     ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_id INTEGER;
     ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_name VARCHAR(100);
@@ -164,6 +182,9 @@ async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS posts_group_id_idx ON posts(group_id);
     CREATE INDEX IF NOT EXISTS posts_created_at_idx ON posts(created_at DESC);
     CREATE INDEX IF NOT EXISTS comments_post_id_idx ON comments(post_id);
+    CREATE INDEX IF NOT EXISTS content_reports_group_status_idx ON content_reports(group_id, status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS content_reports_post_idx ON content_reports(post_id);
+    CREATE INDEX IF NOT EXISTS content_reports_comment_idx ON content_reports(comment_id);
   `;
 
     await db.query(schemaSql);
@@ -599,6 +620,100 @@ async function getGroupCommentForModerator(groupSlug, commentId) {
   return result.rows[0] || null;
 }
 
+async function getGroupPostForReport(groupSlug, postId) {
+  const result = await db.query(
+    `
+      SELECT
+        posts.id,
+        posts.user_id,
+        posts.group_id,
+        COALESCE(groups.slug, '') AS group_slug
+      FROM posts
+      INNER JOIN groups ON groups.id = posts.group_id
+      WHERE posts.id = $1 AND groups.slug = $2
+      LIMIT 1
+    `,
+    [postId, groupSlug]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function getGroupCommentForReport(groupSlug, commentId) {
+  const result = await db.query(
+    `
+      SELECT
+        comments.id,
+        comments.user_id,
+        comments.post_id,
+        posts.group_id,
+        COALESCE(groups.slug, '') AS group_slug
+      FROM comments
+      INNER JOIN posts ON posts.id = comments.post_id
+      INNER JOIN groups ON groups.id = posts.group_id
+      WHERE comments.id = $1 AND groups.slug = $2
+      LIMIT 1
+    `,
+    [commentId, groupSlug]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function getOpenReportForTarget({ reporterId, postId = null, commentId = null }) {
+  const result = await db.query(
+    `
+      SELECT id
+      FROM content_reports
+      WHERE reporter_id = $1
+        AND status = 'open'
+        AND (
+          ($2::int IS NOT NULL AND post_id = $2)
+          OR ($3::int IS NOT NULL AND comment_id = $3)
+        )
+      LIMIT 1
+    `,
+    [reporterId, postId, commentId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function getReportsForGroup(groupId) {
+  const result = await db.query(
+    `
+      SELECT
+        content_reports.id,
+        content_reports.group_id,
+        content_reports.reporter_id,
+        content_reports.post_id,
+        content_reports.comment_id,
+        content_reports.reason,
+        content_reports.details,
+        content_reports.status,
+        content_reports.reviewed_by,
+        content_reports.reviewed_at,
+        content_reports.created_at,
+        COALESCE(reporters.username, 'Unknown') AS reporter_username,
+        COALESCE(posts.content, comments.content, '') AS target_content,
+        COALESCE(posts.user_id, comments.user_id) AS target_user_id,
+        COALESCE(reviewers.username, '') AS reviewer_username
+      FROM content_reports
+      LEFT JOIN users AS reporters ON reporters.id = content_reports.reporter_id
+      LEFT JOIN posts ON posts.id = content_reports.post_id
+      LEFT JOIN comments ON comments.id = content_reports.comment_id
+      LEFT JOIN users AS reviewers ON reviewers.id = content_reports.reviewed_by
+      WHERE content_reports.group_id = $1
+      ORDER BY CASE WHEN content_reports.status = 'open' THEN 0 ELSE 1 END,
+               content_reports.created_at DESC
+      LIMIT 100
+    `,
+    [groupId]
+  );
+
+  return result.rows;
+}
+
 function getSafeReturnPath(candidatePath, fallbackPath = "/profile") {
   if (typeof candidatePath === "string" && candidatePath.startsWith("/")) {
     return candidatePath;
@@ -913,6 +1028,147 @@ app.post("/groups/:slug/edit", requireAuth, async (req, res) => {
     setFlash(req, "error", "Group name is already in use.");
     return res.redirect(`/groups/${group.slug}/edit`);
   }
+});
+
+app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect("/");
+  }
+
+  if (!isGroupCreator(group, req.session.user.id)) {
+    setFlash(req, "error", "Only the group creator can manage reports.");
+    return res.redirect(`/groups/${group.slug}`);
+  }
+
+  const reports = await getReportsForGroup(group.id);
+  return res.render("group-moderation.ejs", {
+    theme: "newpost",
+    group,
+    reports,
+  });
+});
+
+app.post("/groups/:slug/reports/:reportId", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+  const reportId = Number(req.params.reportId);
+  const action = req.body.action === "dismissed" ? "dismissed" : "resolved";
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect("/");
+  }
+
+  if (!isGroupCreator(group, req.session.user.id)) {
+    setFlash(req, "error", "Only the group creator can manage reports.");
+    return res.redirect(`/groups/${group.slug}`);
+  }
+
+  const result = await db.query(
+    `
+      UPDATE content_reports
+      SET status = $1,
+          reviewed_by = $2,
+          reviewed_at = NOW()
+      WHERE id = $3 AND group_id = $4 AND status = 'open'
+      RETURNING id
+    `,
+    [action, req.session.user.id, reportId, group.id]
+  );
+
+  if (result.rowCount === 0) {
+    setFlash(req, "error", "That report is already closed or no longer exists.");
+    return res.redirect(`/groups/${group.slug}/moderation`);
+  }
+
+  setFlash(req, "success", `Report marked as ${action}.`);
+  return res.redirect(`/groups/${group.slug}/moderation`);
+});
+
+app.post("/groups/:slug/posts/:postId/report", requireAuth, async (req, res) => {
+  const postId = Number(req.params.postId);
+  const reason = req.body.reason?.trim() || "Reported by community member";
+  const details = req.body.details?.trim() || "";
+  const groupSlug = req.params.slug;
+  const returnPath = getSafeReturnPath(req.body.returnTo, `/groups/${groupSlug}`);
+
+  const { group, error } = await getWritableGroupForUser(req.session.user.id, groupSlug);
+  if (!group) {
+    setFlash(req, "error", error);
+    return res.redirect(returnPath);
+  }
+
+  const post = await getGroupPostForReport(groupSlug, postId);
+  if (!post) {
+    setFlash(req, "error", "The post no longer exists in this community.");
+    return res.redirect(returnPath);
+  }
+
+  if (Number(post.user_id) === Number(req.session.user.id)) {
+    setFlash(req, "error", "You cannot report your own post.");
+    return res.redirect(returnPath);
+  }
+
+  const existing = await getOpenReportForTarget({ reporterId: req.session.user.id, postId });
+  if (existing) {
+    setFlash(req, "error", "You already reported this post.");
+    return res.redirect(returnPath);
+  }
+
+  await db.query(
+    `
+      INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details)
+      VALUES ($1, $2, $3, $4, $5)
+    `,
+    [group.id, req.session.user.id, postId, reason.slice(0, 120), details]
+  );
+
+  setFlash(req, "success", "Post reported to the group creator.");
+  return res.redirect(returnPath);
+});
+
+app.post("/groups/:slug/comments/:commentId/report", requireAuth, async (req, res) => {
+  const commentId = Number(req.params.commentId);
+  const reason = req.body.reason?.trim() || "Reported by community member";
+  const details = req.body.details?.trim() || "";
+  const groupSlug = req.params.slug;
+  const returnPath = getSafeReturnPath(req.body.returnTo, `/groups/${groupSlug}`);
+
+  const { group, error } = await getWritableGroupForUser(req.session.user.id, groupSlug);
+  if (!group) {
+    setFlash(req, "error", error);
+    return res.redirect(returnPath);
+  }
+
+  const comment = await getGroupCommentForReport(groupSlug, commentId);
+  if (!comment) {
+    setFlash(req, "error", "The comment no longer exists in this community.");
+    return res.redirect(returnPath);
+  }
+
+  if (Number(comment.user_id) === Number(req.session.user.id)) {
+    setFlash(req, "error", "You cannot report your own comment.");
+    return res.redirect(returnPath);
+  }
+
+  const existing = await getOpenReportForTarget({ reporterId: req.session.user.id, commentId });
+  if (existing) {
+    setFlash(req, "error", "You already reported this comment.");
+    return res.redirect(returnPath);
+  }
+
+  await db.query(
+    `
+      INSERT INTO content_reports (group_id, reporter_id, comment_id, reason, details)
+      VALUES ($1, $2, $3, $4, $5)
+    `,
+    [group.id, req.session.user.id, commentId, reason.slice(0, 120), details]
+  );
+
+  setFlash(req, "success", "Comment reported to the group creator.");
+  return res.redirect(returnPath);
 });
 
 app.post("/groups/:slug/posts/:postId/delete", requireAuth, async (req, res) => {

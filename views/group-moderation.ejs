@@ -1,0 +1,57 @@
+<%- include("partials/header.ejs") %>
+
+<a href="/groups/<%= group.slug %>" class="back-btn">
+  <i class="fa-solid fa-chevron-left"></i> Back to <%= group.name %>
+</a>
+
+<section class="container pb-5">
+  <div class="group-hero text-start mb-4">
+    <p class="community-slug">/<%= group.slug %></p>
+    <h1>Moderation Queue</h1>
+    <p>Review reports from community members and close each case as resolved or dismissed.</p>
+  </div>
+
+  <div class="feed-shell">
+    <% if (reports.length === 0) { %>
+      <article class="feed-card text-start mb-3">
+        <p class="mb-0">No reports yet. Everything is clear.</p>
+      </article>
+    <% } else { %>
+      <% reports.forEach(report => { %>
+        <article class="feed-card text-start mb-3">
+          <div class="feed-card-header">
+            <strong>Report #<%= report.id %></strong>
+            <span><%= report.created_at.toLocaleString() %></span>
+          </div>
+          <p class="mb-2">
+            <strong>Status:</strong> <%= report.status %>
+            <% if (report.reviewer_username) { %>
+              <span class="text-white-50"> by @<%= report.reviewer_username %></span>
+            <% } %>
+          </p>
+          <p class="mb-2"><strong>Reporter:</strong> @<%= report.reporter_username %></p>
+          <p class="mb-2"><strong>Reason:</strong> <%= report.reason %></p>
+          <% if (report.details) { %>
+            <p class="mb-2"><strong>Details:</strong> <%= report.details %></p>
+          <% } %>
+          <p class="mb-3"><strong>Reported content:</strong> <%= report.target_content || "(content no longer available)" %></p>
+
+          <% if (report.status === "open") { %>
+            <div class="d-flex flex-wrap gap-2">
+              <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
+                <input type="hidden" name="action" value="resolved">
+                <button type="submit" class="button-19 owner-button">Mark Resolved</button>
+              </form>
+              <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
+                <input type="hidden" name="action" value="dismissed">
+                <button type="submit" class="button-19 owner-button danger">Dismiss</button>
+              </form>
+            </div>
+          <% } %>
+        </article>
+      <% }) %>
+    <% } %>
+  </div>
+</section>
+
+<%- include("partials/footer.ejs") %>

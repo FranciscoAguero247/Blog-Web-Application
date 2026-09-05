@@ -15,12 +15,17 @@ const secondPassword = "Pass1234!";
 const moderationUserEmail = `moderator-member-${runId}@example.com`;
 const moderationUsername = `moderator-member-${runId}`;
 const moderationPassword = "Pass1234!";
+const reportUserEmail = `report-member-${runId}@example.com`;
+const reportUsername = `report-member-${runId}`;
+const reportPassword = "Pass1234!";
 let createdGroupSlug = "";
 let createdPostId = 0;
 let createdCommentId = 0;
 let memberPostId = 0;
 let memberCommentId = 0;
 let paginationPostIds = [];
+let createdReportId = 0;
+let createdCommentReportId = 0;
 
 async function cleanup() {
   if (createdCommentId) {
@@ -44,6 +49,14 @@ async function cleanup() {
     }
   }
 
+  if (createdReportId) {
+    await db.query(`DELETE FROM content_reports WHERE id = $1`, [createdReportId]);
+  }
+
+  if (createdCommentReportId) {
+    await db.query(`DELETE FROM content_reports WHERE id = $1`, [createdCommentReportId]);
+  }
+
   if (createdGroupSlug) {
     await db.query(
       `DELETE FROM memberships WHERE group_id IN (SELECT id FROM groups WHERE slug = $1)`,
@@ -55,6 +68,7 @@ async function cleanup() {
   await db.query(`DELETE FROM users WHERE email = $1`, [userEmail]);
   await db.query(`DELETE FROM users WHERE email = $1`, [secondUserEmail]);
   await db.query(`DELETE FROM users WHERE email = $1`, [moderationUserEmail]);
+  await db.query(`DELETE FROM users WHERE email = $1`, [reportUserEmail]);
 }
 
 test("MVP community flow works end to end", async (t) => {
@@ -379,6 +393,88 @@ test("MVP community flow works end to end", async (t) => {
 
     memberPostId = 0;
     memberCommentId = 0;
+  });
+
+  await t.test("members can report content and creator can close reports", async () => {
+    const reporterAgent = request.agent(app);
+
+    const signupResponse = await reporterAgent
+      .post("/signup")
+      .type("form")
+      .send({ username: reportUsername, email: reportUserEmail, password: reportPassword });
+    assert.equal(signupResponse.status, 302);
+
+    const joinResponse = await reporterAgent.post(`/groups/${createdGroupSlug}/join`).type("form").send({});
+    assert.equal(joinResponse.status, 302);
+
+    const postReportResponse = await reporterAgent
+      .post(`/groups/${createdGroupSlug}/posts/${createdPostId}/report`)
+      .type("form")
+      .send({ reason: "Spam", details: "Looks like spam content.", returnTo: `/groups/${createdGroupSlug}` });
+    assert.equal(postReportResponse.status, 302);
+
+    const commentReportResponse = await reporterAgent
+      .post(`/groups/${createdGroupSlug}/comments/${createdCommentId}/report`)
+      .type("form")
+      .send({ reason: "Harassment", details: "Tone crosses community rules.", returnTo: `/groups/${createdGroupSlug}` });
+    assert.equal(commentReportResponse.status, 302);
+
+    const postReportResult = await db.query(
+      `
+        SELECT content_reports.id
+        FROM content_reports
+        INNER JOIN users ON users.id = content_reports.reporter_id
+        WHERE users.email = $1 AND content_reports.post_id = $2 AND content_reports.status = 'open'
+        LIMIT 1
+      `,
+      [reportUserEmail, createdPostId]
+    );
+    createdReportId = postReportResult.rows[0].id;
+
+    const commentReportResult = await db.query(
+      `
+        SELECT content_reports.id
+        FROM content_reports
+        INNER JOIN users ON users.id = content_reports.reporter_id
+        WHERE users.email = $1 AND content_reports.comment_id = $2 AND content_reports.status = 'open'
+        LIMIT 1
+      `,
+      [reportUserEmail, createdCommentId]
+    );
+    createdCommentReportId = commentReportResult.rows[0].id;
+
+    const moderationPage = await agent.get(`/groups/${createdGroupSlug}/moderation`);
+    assert.equal(moderationPage.status, 200);
+    assert.match(moderationPage.text, /Moderation Queue/);
+    assert.match(moderationPage.text, /Spam/);
+    assert.match(moderationPage.text, /Harassment/);
+
+    const resolvePostReport = await agent
+      .post(`/groups/${createdGroupSlug}/reports/${createdReportId}`)
+      .type("form")
+      .send({ action: "resolved" });
+    assert.equal(resolvePostReport.status, 302);
+
+    const dismissCommentReport = await agent
+      .post(`/groups/${createdGroupSlug}/reports/${createdCommentReportId}`)
+      .type("form")
+      .send({ action: "dismissed" });
+    assert.equal(dismissCommentReport.status, 302);
+
+    const closedReports = await db.query(
+      `
+        SELECT status
+        FROM content_reports
+        WHERE id = ANY($1::int[])
+        ORDER BY id ASC
+      `,
+      [[createdReportId, createdCommentReportId]]
+    );
+    assert.equal(closedReports.rows.length, 2);
+    assert.deepEqual(closedReports.rows.map((row) => row.status).sort(), ["dismissed", "resolved"]);
+
+    createdReportId = 0;
+    createdCommentReportId = 0;
   });
 
   await t.test("creator cannot leave own group", async () => {
