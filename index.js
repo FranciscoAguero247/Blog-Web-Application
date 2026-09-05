@@ -7,7 +7,9 @@ import PG from "pg";
 import dotenv from "dotenv";
 import session from "express-session";
 import bcrypt from "bcryptjs";
+import { supabaseSessionMiddleware } from "./lib/supabase/middleware.js";
 
+dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 const DEFAULT_GROUPS = [
@@ -48,13 +50,27 @@ const fallbackThemeBySlug = {
   tech: "tech",
 };
 
-const db = new PG.Client({
-  user: process.env.DB_USER || "postgres",
-  host: process.env.DB_HOST || "localhost",
-  database: process.env.DB_NAME || "blog_web_app",
-  password: process.env.DB_PASSWORD || "postgres",
-  port: Number(process.env.DB_PORT || 5432),
-});
+function getDatabaseConfig() {
+  if (process.env.DATABASE_URL) {
+    return {
+      connectionString: process.env.DATABASE_URL,
+      ssl:
+        process.env.DB_SSL === "true" || process.env.VERCEL
+          ? { rejectUnauthorized: false }
+          : undefined,
+    };
+  }
+
+  return {
+    user: process.env.DB_USER || "postgres",
+    host: process.env.DB_HOST || "localhost",
+    database: process.env.DB_NAME || "blog_web_app",
+    password: process.env.DB_PASSWORD || "postgres",
+    port: Number(process.env.DB_PORT || 5432),
+  };
+}
+
+const db = new PG.Pool(getDatabaseConfig());
 
 let databaseInitialized = false;
 let databaseInitializing;
@@ -70,8 +86,6 @@ async function initializeDatabase() {
   }
 
   databaseInitializing = (async () => {
-    await db.connect();
-
     const schemaSql = `
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -568,12 +582,26 @@ app.set("view engine", "ejs");
 app.engine("ejs", ejs.__express);
 app.set("views", path.join(__dirname, "./views"));
 app.use(express.static(__dirname + "/public/"));
+app.use(supabaseSessionMiddleware());
 
 app.use((req, res, next) => {
   res.locals.currentUser = req.session.user || null;
   res.locals.flash = req.session.flash || null;
   delete req.session.flash;
   next();
+});
+
+app.use(async (req, res, next) => {
+  try {
+    await initializeDatabase();
+    return next();
+  } catch (error) {
+    console.error("Failed to initialize database:", error);
+    if (!res.headersSent) {
+      return res.status(500).send("Database initialization failed.");
+    }
+    return undefined;
+  }
 });
 
 app.get("/", async (req, res) => {
@@ -1244,11 +1272,6 @@ const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filen
 if (isDirectRun) {
   startServer();
 }
-
-initializeDatabase().catch((error) => {
-  console.error("Failed to initialize database:", error);
-  process.exit(1);
-});
 
 export default app;
 

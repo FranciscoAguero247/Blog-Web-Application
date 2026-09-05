@@ -1,6 +1,7 @@
 import PG from 'pg';
 import dotenv from 'dotenv';
 
+dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 const db = new PG.Client({
