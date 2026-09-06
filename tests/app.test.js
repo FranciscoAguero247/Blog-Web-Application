@@ -542,6 +542,12 @@ test("MVP community flow works end to end", async (t) => {
     );
     assert.equal(moderationActions.rows.length, 3);
 
+    const filteredActionHistory = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?actionType=report_resolved`);
+    assert.equal(filteredActionHistory.status, 200);
+    assert.match(filteredActionHistory.text, /Report Resolved \(active\)/);
+    assert.match(filteredActionHistory.text, /report_resolved/i);
+    assert.doesNotMatch(filteredActionHistory.text, /report_dismissed/i);
+
     createdReportId = 0;
     createdCommentReportId = 0;
   });
@@ -582,6 +588,42 @@ test("MVP community flow works end to end", async (t) => {
     assert.match(secondPage.text, /Queue page test #1/);
 
     await db.query(`DELETE FROM content_reports WHERE reason LIKE 'Queue page test #%';`);
+  });
+
+  await t.test("moderation action history paginates and filters", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    assert.equal(groupResult.rowCount, 1);
+
+    await db.query(
+      `
+        INSERT INTO moderation_actions (group_id, actor_user_id, action_type, target_type, target_id, reason, target_snapshot, created_at)
+        SELECT $1, $2, 'report_resolved', 'report', $3, 'pagination sequence', 'audit', NOW() + (gs * INTERVAL '1 second')
+        FROM generate_series(1, 11) AS gs
+      `,
+      [groupResult.rows[0].id, moderatorUserId, createdReportId || 1]
+    );
+
+    const filteredPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?actionType=report_resolved`);
+    assert.equal(filteredPage.status, 200);
+    assert.match(filteredPage.text, /Action page 1 of 2/);
+    assert.match(filteredPage.text, /Report Resolved \(active\)/);
+
+    const secondActionPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?actionType=report_resolved&actionsPage=2`);
+    assert.equal(secondActionPage.status, 200);
+    assert.match(secondActionPage.text, /Action page 2 of 2/);
+
+    await db.query(
+      `DELETE FROM moderation_actions WHERE group_id = $1 AND action_type = 'report_resolved' AND reason = 'pagination sequence';`,
+      [groupResult.rows[0].id]
+    );
   });
 
   await t.test("creator cannot leave own group", async () => {
