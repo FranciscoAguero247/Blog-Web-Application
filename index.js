@@ -822,7 +822,45 @@ async function getReportsForGroup(groupId, { status = "all", page = 1, pageSize 
   };
 }
 
-async function getModerationActionsForGroup(groupId) {
+async function getModerationActionsForGroup(groupId, { actionType = "all", page = 1, pageSize = 10 } = {}) {
+  const safeActionType = [
+    "all",
+    "moderator_added",
+    "moderator_removed",
+    "report_resolved",
+    "report_dismissed",
+    "post_removed",
+    "comment_removed",
+  ].includes(actionType)
+    ? actionType
+    : "all";
+  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+  const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : 10;
+
+  const whereClauses = ["moderation_actions.group_id = $1"];
+  const params = [groupId];
+
+  if (safeActionType !== "all") {
+    params.push(safeActionType);
+    whereClauses.push(`moderation_actions.action_type = $${params.length}`);
+  }
+
+  const whereSql = whereClauses.join(" AND ");
+  const countResult = await db.query(
+    `
+      SELECT COUNT(*)::int AS total_count
+      FROM moderation_actions
+      WHERE ${whereSql}
+    `,
+    params
+  );
+
+  const totalCount = countResult.rows[0]?.total_count || 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+  const currentPage = Math.min(safePage, totalPages);
+  const offset = (currentPage - 1) * safePageSize;
+  const listParams = [...params, safePageSize, offset];
+
   const result = await db.query(
     `
       SELECT
@@ -838,14 +876,21 @@ async function getModerationActionsForGroup(groupId) {
         COALESCE(actors.username, 'Unknown') AS actor_username
       FROM moderation_actions
       LEFT JOIN users AS actors ON actors.id = moderation_actions.actor_user_id
-      WHERE moderation_actions.group_id = $1
+      WHERE ${whereSql}
       ORDER BY moderation_actions.created_at DESC
-      LIMIT 50
+      LIMIT $${listParams.length - 1}
+      OFFSET $${listParams.length}
     `,
-    [groupId]
+    listParams
   );
 
-  return result.rows;
+  return {
+    moderationActions: result.rows,
+    totalCount,
+    totalPages,
+    currentPage,
+    actionTypeFilter: safeActionType,
+  };
 }
 
 async function logModerationAction({
@@ -1309,9 +1354,27 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
   const requestedPage = Number.parseInt(req.query.page, 10);
   const moderationPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
-  const [reportPage, moderationActions] = await Promise.all([
+  const requestedActionType =
+    typeof req.query.actionType === "string" ? req.query.actionType : "all";
+  const actionTypeFilter = [
+    "all",
+    "moderator_added",
+    "moderator_removed",
+    "report_resolved",
+    "report_dismissed",
+    "post_removed",
+    "comment_removed",
+  ].includes(requestedActionType)
+    ? requestedActionType
+    : "all";
+  const requestedActionsPage = Number.parseInt(req.query.actionsPage, 10);
+  const actionsPage = Number.isFinite(requestedActionsPage) && requestedActionsPage > 0
+    ? requestedActionsPage
+    : 1;
+
+  const [reportPage, actionPage] = await Promise.all([
     getReportsForGroup(group.id, { status: statusFilter, page: moderationPage }),
-    getModerationActionsForGroup(group.id),
+    getModerationActionsForGroup(group.id, { actionType: actionTypeFilter, page: actionsPage }),
   ]);
 
   const querySuffix = reportPage.statusFilter === "all"
@@ -1332,7 +1395,12 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     hasPreviousReportPage: reportPage.currentPage > 1,
     hasNextReportPage: reportPage.currentPage < reportPage.totalPages,
     moderationReturnPath,
-    moderationActions,
+    moderationActions: actionPage.moderationActions,
+    actionTypeFilter: actionPage.actionTypeFilter,
+    currentActionsPage: actionPage.currentPage,
+    totalActionsPages: actionPage.totalPages,
+    hasPreviousActionsPage: actionPage.currentPage > 1,
+    hasNextActionsPage: actionPage.currentPage < actionPage.totalPages,
   });
 });
 
