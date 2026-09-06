@@ -749,7 +749,39 @@ async function getOpenReportForTarget({ reporterId, postId = null, commentId = n
   return result.rows[0] || null;
 }
 
-async function getReportsForGroup(groupId) {
+async function getReportsForGroup(groupId, { status = "all", page = 1, pageSize = MODERATION_REPORTS_PER_PAGE } = {}) {
+  const safeStatus = ["all", "open", "resolved", "dismissed"].includes(status) ? status : "all";
+  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+  const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : MODERATION_REPORTS_PER_PAGE;
+
+  const whereClauses = ["content_reports.group_id = $1"];
+  const params = [groupId];
+
+  if (safeStatus !== "all") {
+    params.push(safeStatus);
+    whereClauses.push(`content_reports.status = $${params.length}`);
+  }
+
+  const whereSql = whereClauses.join(" AND ");
+  const countResult = await db.query(
+    `
+      SELECT COUNT(*)::int AS total_count
+      FROM content_reports
+      WHERE ${whereSql}
+    `,
+    params
+  );
+
+  const totalCount = countResult.rows[0]?.total_count || 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+  const currentPage = Math.min(safePage, totalPages);
+  const offset = (currentPage - 1) * safePageSize;
+  const listParams = [...params, safePageSize, offset];
+  const orderBySql =
+    safeStatus === "all"
+      ? "CASE WHEN content_reports.status = 'open' THEN 0 ELSE 1 END, content_reports.created_at DESC"
+      : "content_reports.created_at DESC";
+
   const result = await db.query(
     `
       SELECT
@@ -773,15 +805,21 @@ async function getReportsForGroup(groupId) {
       LEFT JOIN posts ON posts.id = content_reports.post_id
       LEFT JOIN comments ON comments.id = content_reports.comment_id
       LEFT JOIN users AS reviewers ON reviewers.id = content_reports.reviewed_by
-      WHERE content_reports.group_id = $1
-      ORDER BY CASE WHEN content_reports.status = 'open' THEN 0 ELSE 1 END,
-               content_reports.created_at DESC
-      LIMIT 100
+      WHERE ${whereSql}
+      ORDER BY ${orderBySql}
+      LIMIT $${listParams.length - 1}
+      OFFSET $${listParams.length}
     `,
-    [groupId]
+    listParams
   );
 
-  return result.rows;
+  return {
+    reports: result.rows,
+    totalCount,
+    totalPages,
+    currentPage,
+    statusFilter: safeStatus,
+  };
 }
 
 async function getModerationActionsForGroup(groupId) {
@@ -849,6 +887,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const GROUP_POSTS_PER_PAGE = 5;
+const MODERATION_REPORTS_PER_PAGE = 10;
 const PgSession = connectPgSimple(session);
 
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -1263,14 +1302,36 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     return res.redirect(`/groups/${group.slug}`);
   }
 
-  const [reports, moderationActions] = await Promise.all([
-    getReportsForGroup(group.id),
+  const requestedStatus = typeof req.query.status === "string" ? req.query.status : "all";
+  const statusFilter = ["all", "open", "resolved", "dismissed"].includes(requestedStatus)
+    ? requestedStatus
+    : "all";
+  const requestedPage = Number.parseInt(req.query.page, 10);
+  const moderationPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+
+  const [reportPage, moderationActions] = await Promise.all([
+    getReportsForGroup(group.id, { status: statusFilter, page: moderationPage }),
     getModerationActionsForGroup(group.id),
   ]);
+
+  const querySuffix = reportPage.statusFilter === "all"
+    ? `?page=${reportPage.currentPage}`
+    : `?status=${reportPage.statusFilter}&page=${reportPage.currentPage}`;
+  const moderationReturnPath =
+    reportPage.currentPage > 1 || reportPage.statusFilter !== "all"
+      ? `/groups/${group.slug}/moderation${querySuffix}`
+      : `/groups/${group.slug}/moderation`;
+
   return res.render("group-moderation.ejs", {
     theme: "newpost",
     group,
-    reports,
+    reports: reportPage.reports,
+    reportStatusFilter: reportPage.statusFilter,
+    currentReportPage: reportPage.currentPage,
+    totalReportPages: reportPage.totalPages,
+    hasPreviousReportPage: reportPage.currentPage > 1,
+    hasNextReportPage: reportPage.currentPage < reportPage.totalPages,
+    moderationReturnPath,
     moderationActions,
   });
 });
@@ -1279,16 +1340,17 @@ app.post("/groups/:slug/reports/:reportId", requireAuth, async (req, res) => {
   const group = await getGroupBySlug(req.params.slug);
   const reportId = Number(req.params.reportId);
   const action = req.body.action === "dismissed" ? "dismissed" : "resolved";
+  const returnPath = getSafeReturnPath(req.body.returnTo, group ? `/groups/${group.slug}/moderation` : "/");
 
   if (!group) {
     setFlash(req, "error", "That community does not exist.");
-    return res.redirect("/");
+    return res.redirect(returnPath);
   }
 
   const groupModerator = await isGroupModerator(req.session.user.id, group.id);
   if (!canModerateGroup({ group, userId: req.session.user.id, isModerator: groupModerator })) {
     setFlash(req, "error", "Only moderators can manage reports.");
-    return res.redirect(`/groups/${group.slug}`);
+    return res.redirect(returnPath);
   }
 
   const result = await db.query(
@@ -1305,7 +1367,7 @@ app.post("/groups/:slug/reports/:reportId", requireAuth, async (req, res) => {
 
   if (result.rowCount === 0) {
     setFlash(req, "error", "That report is already closed or no longer exists.");
-    return res.redirect(`/groups/${group.slug}/moderation`);
+    return res.redirect(returnPath);
   }
 
   await logModerationAction({
@@ -1318,7 +1380,7 @@ app.post("/groups/:slug/reports/:reportId", requireAuth, async (req, res) => {
   });
 
   setFlash(req, "success", `Report marked as ${action}.`);
-  return res.redirect(`/groups/${group.slug}/moderation`);
+  return res.redirect(returnPath);
 });
 
 app.post("/groups/:slug/posts/:postId/report", requireAuth, async (req, res) => {

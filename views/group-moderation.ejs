@@ -11,6 +11,33 @@
     <p>Review reports from community members and close each case as resolved or dismissed.</p>
   </div>
 
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <a
+      href="/groups/<%= group.slug %>/moderation"
+      class="button-19 owner-button"
+    >
+      All<%= reportStatusFilter === 'all' ? ' (active)' : '' %>
+    </a>
+    <a
+      href="/groups/<%= group.slug %>/moderation?status=open"
+      class="button-19 owner-button"
+    >
+      Open<%= reportStatusFilter === 'open' ? ' (active)' : '' %>
+    </a>
+    <a
+      href="/groups/<%= group.slug %>/moderation?status=resolved"
+      class="button-19 owner-button"
+    >
+      Resolved<%= reportStatusFilter === 'resolved' ? ' (active)' : '' %>
+    </a>
+    <a
+      href="/groups/<%= group.slug %>/moderation?status=dismissed"
+      class="button-19 owner-button"
+    >
+      Dismissed<%= reportStatusFilter === 'dismissed' ? ' (active)' : '' %>
+    </a>
+  </div>
+
   <div class="feed-shell">
     <% if (reports.length === 0) { %>
       <article class="feed-card text-start mb-3">
@@ -40,10 +67,12 @@
             <div class="d-flex flex-wrap gap-2">
               <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
                 <input type="hidden" name="action" value="resolved">
+                <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
                 <button type="submit" class="button-19 owner-button">Mark Resolved</button>
               </form>
               <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
                 <input type="hidden" name="action" value="dismissed">
+                <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
                 <button type="submit" class="button-19 owner-button danger">Dismiss</button>
               </form>
             </div>
@@ -52,6 +81,27 @@
       <% }) %>
     <% } %>
   </div>
+
+  <% if (totalReportPages > 1) { %>
+    <div class="d-flex align-items-center justify-content-between mt-3 mb-4">
+      <% const pageBase = reportStatusFilter === 'all' ? '' : `status=${reportStatusFilter}&`; %>
+      <div>
+        <% if (hasPreviousReportPage) { %>
+          <a href="/groups/<%= group.slug %>/moderation?<%= pageBase %>page=<%= currentReportPage - 1 %>" class="button-19 owner-button">
+            Previous
+          </a>
+        <% } %>
+      </div>
+      <p class="mb-0">Page <%= currentReportPage %> of <%= totalReportPages %></p>
+      <div>
+        <% if (hasNextReportPage) { %>
+          <a href="/groups/<%= group.slug %>/moderation?<%= pageBase %>page=<%= currentReportPage + 1 %>" class="button-19 owner-button">
+            Next
+          </a>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
 
   <div class="group-hero text-start mt-5 mb-4">
     <h2 class="h3">Recent moderator actions</h2>

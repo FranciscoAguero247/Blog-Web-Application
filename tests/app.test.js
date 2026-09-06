@@ -493,14 +493,31 @@ test("MVP community flow works end to end", async (t) => {
     const resolvePostReport = await moderatorAgent
       .post(`/groups/${createdGroupSlug}/reports/${createdReportId}`)
       .type("form")
-      .send({ action: "resolved" });
+      .send({ action: "resolved", returnTo: `/groups/${createdGroupSlug}/moderation?status=open&page=2` });
     assert.equal(resolvePostReport.status, 302);
+    assert.equal(resolvePostReport.headers.location, `/groups/${createdGroupSlug}/moderation?status=open&page=2`);
 
     const dismissCommentReport = await moderatorAgent
       .post(`/groups/${createdGroupSlug}/reports/${createdCommentReportId}`)
       .type("form")
-      .send({ action: "dismissed" });
+      .send({ action: "dismissed", returnTo: `/groups/${createdGroupSlug}/moderation?status=open&page=2` });
     assert.equal(dismissCommentReport.status, 302);
+    assert.equal(dismissCommentReport.headers.location, `/groups/${createdGroupSlug}/moderation?status=open&page=2`);
+
+    const openQueue = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?status=open`);
+    assert.equal(openQueue.status, 200);
+    assert.match(openQueue.text, /Open \(active\)/);
+    assert.match(openQueue.text, /No reports yet\. Everything is clear\./);
+
+    const resolvedQueue = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?status=resolved`);
+    assert.equal(resolvedQueue.status, 200);
+    assert.match(resolvedQueue.text, /Resolved \(active\)/);
+    assert.match(resolvedQueue.text, /Spam/);
+
+    const dismissedQueue = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?status=dismissed`);
+    assert.equal(dismissedQueue.status, 200);
+    assert.match(dismissedQueue.text, /Dismissed \(active\)/);
+    assert.match(dismissedQueue.text, /Harassment/);
 
     const closedReports = await db.query(
       `
@@ -527,6 +544,44 @@ test("MVP community flow works end to end", async (t) => {
 
     createdReportId = 0;
     createdCommentReportId = 0;
+  });
+
+  await t.test("moderation queue paginates reports", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    const reporterResult = await db.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [reportUserEmail]);
+    assert.equal(groupResult.rowCount, 1);
+    assert.equal(reporterResult.rowCount, 1);
+
+    await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status, created_at)
+        SELECT $1, $2, $3, 'Queue page test #' || gs::text, 'pagination', 'open', NOW() + (gs * INTERVAL '1 second')
+        FROM generate_series(1, 11) AS gs
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId]
+    );
+
+    const firstPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?status=open`);
+    assert.equal(firstPage.status, 200);
+    assert.match(firstPage.text, /Page 1 of 2/);
+    assert.match(firstPage.text, new RegExp(`/groups/${createdGroupSlug}/moderation\\?status=open&amp;page=2`));
+    assert.match(firstPage.text, /Queue page test #11/);
+    assert.doesNotMatch(firstPage.text, /Queue page test #1\b/);
+
+    const secondPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?status=open&page=2`);
+    assert.equal(secondPage.status, 200);
+    assert.match(secondPage.text, /Page 2 of 2/);
+    assert.match(secondPage.text, /Queue page test #1/);
+
+    await db.query(`DELETE FROM content_reports WHERE reason LIKE 'Queue page test #%';`);
   });
 
   await t.test("creator cannot leave own group", async () => {
