@@ -1404,6 +1404,70 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
   });
 });
 
+app.post("/groups/:slug/reports/bulk", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+  const action = req.body.action === "dismissed" ? "dismissed" : "resolved";
+  const returnPath = getSafeReturnPath(req.body.returnTo, group ? `/groups/${group.slug}/moderation` : "/");
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect(returnPath);
+  }
+
+  const groupModerator = await isGroupModerator(req.session.user.id, group.id);
+  if (!canModerateGroup({ group, userId: req.session.user.id, isModerator: groupModerator })) {
+    setFlash(req, "error", "Only moderators can manage reports.");
+    return res.redirect(returnPath);
+  }
+
+  const rawReportIds = Array.isArray(req.body.reportIds) ? req.body.reportIds : [req.body.reportIds];
+  const reportIds = rawReportIds
+    .flatMap((value) => {
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string") return value.split(",");
+      return [value];
+    })
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
+
+  if (reportIds.length === 0) {
+    setFlash(req, "error", "Select at least one report to update.");
+    return res.redirect(returnPath);
+  }
+
+  const result = await db.query(
+    `
+      UPDATE content_reports
+      SET status = $1,
+          reviewed_by = $2,
+          reviewed_at = NOW()
+      WHERE id = ANY($3::int[]) AND group_id = $4 AND status = 'open'
+      RETURNING id
+    `,
+    [action, req.session.user.id, reportIds, group.id]
+  );
+
+  const updatedIds = result.rows.map((row) => Number(row.id));
+  for (const reportId of updatedIds) {
+    await logModerationAction({
+      groupId: group.id,
+      actorUserId: req.session.user.id,
+      actionType: action === "dismissed" ? "report_dismissed" : "report_resolved",
+      targetType: "report",
+      targetId: reportId,
+      reason: `Bulk report marked as ${action}`,
+    });
+  }
+
+  if (updatedIds.length === 0) {
+    setFlash(req, "error", "No open reports were updated.");
+    return res.redirect(returnPath);
+  }
+
+  setFlash(req, "success", `${updatedIds.length} report${updatedIds.length === 1 ? "" : "s"} marked as ${action}.`);
+  return res.redirect(returnPath);
+});
+
 app.post("/groups/:slug/reports/:reportId", requireAuth, async (req, res) => {
   const group = await getGroupBySlug(req.params.slug);
   const reportId = Number(req.params.reportId);

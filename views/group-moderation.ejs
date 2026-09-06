@@ -44,41 +44,57 @@
         <p class="mb-0">No reports yet. Everything is clear.</p>
       </article>
     <% } else { %>
-      <% reports.forEach(report => { %>
-        <article class="feed-card text-start mb-3">
-          <div class="feed-card-header">
-            <strong>Report #<%= report.id %></strong>
-            <span><%= report.created_at.toLocaleString() %></span>
-          </div>
-          <p class="mb-2">
-            <strong>Status:</strong> <%= report.status %>
-            <% if (report.reviewer_username) { %>
-              <span class="text-white-50"> by @<%= report.reviewer_username %></span>
-            <% } %>
-          </p>
-          <p class="mb-2"><strong>Reporter:</strong> @<%= report.reporter_username %></p>
-          <p class="mb-2"><strong>Reason:</strong> <%= report.reason %></p>
-          <% if (report.details) { %>
-            <p class="mb-2"><strong>Details:</strong> <%= report.details %></p>
-          <% } %>
-          <p class="mb-3"><strong>Reported content:</strong> <%= report.target_content || "(content no longer available)" %></p>
+      <form action="/groups/<%= group.slug %>/reports/bulk" method="POST" class="mb-3">
+        <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="submit" name="action" value="resolved" class="button-19 owner-button">Resolve selected</button>
+          <button type="submit" name="action" value="dismissed" class="button-19 owner-button danger">Dismiss selected</button>
+        </div>
 
-          <% if (report.status === "open") { %>
-            <div class="d-flex flex-wrap gap-2">
-              <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
-                <input type="hidden" name="action" value="resolved">
-                <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
-                <button type="submit" class="button-19 owner-button">Mark Resolved</button>
-              </form>
-              <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
-                <input type="hidden" name="action" value="dismissed">
-                <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
-                <button type="submit" class="button-19 owner-button danger">Dismiss</button>
-              </form>
+        <% reports.forEach(report => { %>
+          <article class="feed-card text-start mb-3">
+            <div class="feed-card-header d-flex align-items-center justify-content-between gap-3">
+              <div>
+                <strong>Report #<%= report.id %></strong>
+                <span><%= report.created_at.toLocaleString() %></span>
+              </div>
+              <% if (report.status === "open") { %>
+                <label class="d-flex align-items-center gap-2 mb-0">
+                  <input type="checkbox" name="reportIds" value="<%= report.id %>">
+                  <span>Select</span>
+                </label>
+              <% } %>
             </div>
-          <% } %>
-        </article>
-      <% }) %>
+            <p class="mb-2">
+              <strong>Status:</strong> <%= report.status %>
+              <% if (report.reviewer_username) { %>
+                <span class="text-white-50"> by @<%= report.reviewer_username %></span>
+              <% } %>
+            </p>
+            <p class="mb-2"><strong>Reporter:</strong> @<%= report.reporter_username %></p>
+            <p class="mb-2"><strong>Reason:</strong> <%= report.reason %></p>
+            <% if (report.details) { %>
+              <p class="mb-2"><strong>Details:</strong> <%= report.details %></p>
+            <% } %>
+            <p class="mb-3"><strong>Reported content:</strong> <%= report.target_content || "(content no longer available)" %></p>
+
+            <% if (report.status === "open") { %>
+              <div class="d-flex flex-wrap gap-2">
+                <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
+                  <input type="hidden" name="action" value="resolved">
+                  <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
+                  <button type="submit" class="button-19 owner-button">Mark Resolved</button>
+                </form>
+                <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
+                  <input type="hidden" name="action" value="dismissed">
+                  <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
+                  <button type="submit" class="button-19 owner-button danger">Dismiss</button>
+                </form>
+              </div>
+            <% } %>
+          </article>
+        <% }) %>
+      </form>
     <% } %>
   </div>
 

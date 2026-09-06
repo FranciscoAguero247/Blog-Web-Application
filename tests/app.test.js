@@ -629,6 +629,79 @@ test("MVP community flow works end to end", async (t) => {
     );
   });
 
+  await t.test("moderators can bulk resolve open reports", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    const reporterResult = await db.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [reportUserEmail]);
+    assert.equal(groupResult.rowCount, 1);
+    assert.equal(reporterResult.rowCount, 1);
+
+    const firstBulkReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status)
+        VALUES ($1, $2, $3, 'bulk report A', 'bulk action test', 'open')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId]
+    );
+    const secondBulkReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, comment_id, reason, details, status)
+        VALUES ($1, $2, $3, 'bulk report B', 'bulk action test', 'open')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdCommentId]
+    );
+
+    const bulkResponse = await moderatorAgent
+      .post(`/groups/${createdGroupSlug}/reports/bulk`)
+      .type("form")
+      .send({
+        action: "resolved",
+        reportIds: [firstBulkReport.rows[0].id, secondBulkReport.rows[0].id],
+        returnTo: `/groups/${createdGroupSlug}/moderation`,
+      });
+    assert.equal(bulkResponse.status, 302);
+
+    const bulkStatusRows = await db.query(
+      `
+        SELECT id, status
+        FROM content_reports
+        WHERE id = ANY($1::int[])
+        ORDER BY id ASC
+      `,
+      [[firstBulkReport.rows[0].id, secondBulkReport.rows[0].id]]
+    );
+    assert.deepEqual(
+      bulkStatusRows.rows.map((row) => row.status).sort(),
+      ["resolved", "resolved"]
+    );
+
+    const actionRows = await db.query(
+      `
+        SELECT COUNT(*)::int AS total_count
+        FROM moderation_actions
+        WHERE group_id = $1
+          AND action_type = 'report_resolved'
+          AND target_id = ANY($2::int[])
+      `,
+      [groupResult.rows[0].id, [firstBulkReport.rows[0].id, secondBulkReport.rows[0].id]]
+    );
+    assert.equal(actionRows.rows[0].total_count, 2);
+
+    await db.query(
+      `DELETE FROM content_reports WHERE id = ANY($1::int[])`,
+      [[firstBulkReport.rows[0].id, secondBulkReport.rows[0].id]]
+    );
+  });
+
   await t.test("creator cannot leave own group", async () => {
     const leaveResponse = await agent.post(`/groups/${createdGroupSlug}/leave`).type("form").send({});
     assert.equal(leaveResponse.status, 302);
