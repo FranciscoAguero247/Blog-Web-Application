@@ -545,8 +545,8 @@ test("MVP community flow works end to end", async (t) => {
     const filteredActionHistory = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?actionType=report_resolved`);
     assert.equal(filteredActionHistory.status, 200);
     assert.match(filteredActionHistory.text, /Report Resolved \(active\)/);
-    assert.match(filteredActionHistory.text, /report_resolved/i);
-    assert.doesNotMatch(filteredActionHistory.text, /report_dismissed/i);
+    assert.match(filteredActionHistory.text, /Report marked as resolved/i);
+    assert.doesNotMatch(filteredActionHistory.text, /Report marked as dismissed/i);
 
     createdReportId = 0;
     createdCommentReportId = 0;
@@ -600,7 +600,9 @@ test("MVP community flow works end to end", async (t) => {
     assert.equal(moderatorLogin.status, 302);
 
     const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    const moderatorUser = await db.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [moderationUserEmail]);
     assert.equal(groupResult.rowCount, 1);
+    assert.equal(moderatorUser.rowCount, 1);
 
     await db.query(
       `
@@ -608,13 +610,14 @@ test("MVP community flow works end to end", async (t) => {
         SELECT $1, $2, 'report_resolved', 'report', $3, 'pagination sequence', 'audit', NOW() + (gs * INTERVAL '1 second')
         FROM generate_series(1, 11) AS gs
       `,
-      [groupResult.rows[0].id, moderatorUserId, createdReportId || 1]
+      [groupResult.rows[0].id, moderatorUser.rows[0].id, createdReportId || 1]
     );
 
     const filteredPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?actionType=report_resolved`);
     assert.equal(filteredPage.status, 200);
     assert.match(filteredPage.text, /Action page 1 of 2/);
     assert.match(filteredPage.text, /Report Resolved \(active\)/);
+    assert.match(filteredPage.text, /pagination sequence/i);
 
     const secondActionPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?actionType=report_resolved&actionsPage=2`);
     assert.equal(secondActionPage.status, 200);
