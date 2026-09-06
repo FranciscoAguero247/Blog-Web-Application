@@ -59,6 +59,14 @@ async function cleanup() {
 
   if (createdGroupSlug) {
     await db.query(
+      `DELETE FROM content_reports WHERE group_id IN (SELECT id FROM groups WHERE slug = $1)`,
+      [createdGroupSlug]
+    );
+    await db.query(
+      `DELETE FROM group_moderators WHERE group_id IN (SELECT id FROM groups WHERE slug = $1)`,
+      [createdGroupSlug]
+    );
+    await db.query(
       `DELETE FROM memberships WHERE group_id IN (SELECT id FROM groups WHERE slug = $1)`,
       [createdGroupSlug]
     );
@@ -395,8 +403,9 @@ test("MVP community flow works end to end", async (t) => {
     memberCommentId = 0;
   });
 
-  await t.test("members can report content and creator can close reports", async () => {
+  await t.test("creator can assign a moderator to close reports", async () => {
     const reporterAgent = request.agent(app);
+    const moderatorAgent = request.agent(app);
 
     const signupResponse = await reporterAgent
       .post("/signup")
@@ -406,6 +415,34 @@ test("MVP community flow works end to end", async (t) => {
 
     const joinResponse = await reporterAgent.post(`/groups/${createdGroupSlug}/join`).type("form").send({});
     assert.equal(joinResponse.status, 302);
+
+    const nonModeratorQueue = await reporterAgent.get(`/groups/${createdGroupSlug}/moderation`);
+    assert.equal(nonModeratorQueue.status, 302);
+    assert.equal(nonModeratorQueue.headers.location, `/groups/${createdGroupSlug}`);
+
+    const assignModerator = await agent
+      .post(`/groups/${createdGroupSlug}/moderators`)
+      .type("form")
+      .send({ username: moderationUsername });
+    assert.equal(assignModerator.status, 302);
+
+    const moderatorMembership = await db.query(
+      `
+        SELECT 1
+        FROM group_moderators
+        INNER JOIN groups ON groups.id = group_moderators.group_id
+        INNER JOIN users ON users.id = group_moderators.user_id
+        WHERE groups.slug = $1 AND users.email = $2
+      `,
+      [createdGroupSlug, moderationUserEmail]
+    );
+    assert.equal(moderatorMembership.rowCount, 1);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
 
     const postReportResponse = await reporterAgent
       .post(`/groups/${createdGroupSlug}/posts/${createdPostId}/report`)
@@ -443,19 +480,19 @@ test("MVP community flow works end to end", async (t) => {
     );
     createdCommentReportId = commentReportResult.rows[0].id;
 
-    const moderationPage = await agent.get(`/groups/${createdGroupSlug}/moderation`);
+    const moderationPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation`);
     assert.equal(moderationPage.status, 200);
     assert.match(moderationPage.text, /Moderation Queue/);
     assert.match(moderationPage.text, /Spam/);
     assert.match(moderationPage.text, /Harassment/);
 
-    const resolvePostReport = await agent
+    const resolvePostReport = await moderatorAgent
       .post(`/groups/${createdGroupSlug}/reports/${createdReportId}`)
       .type("form")
       .send({ action: "resolved" });
     assert.equal(resolvePostReport.status, 302);
 
-    const dismissCommentReport = await agent
+    const dismissCommentReport = await moderatorAgent
       .post(`/groups/${createdGroupSlug}/reports/${createdCommentReportId}`)
       .type("form")
       .send({ action: "dismissed" });

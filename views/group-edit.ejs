@@ -40,6 +40,43 @@
         <button type="submit" class="button-19">Save community details</button>
       </div>
     </form>
+
+    <hr class="my-4 border-secondary">
+
+    <section class="text-start">
+      <h2 class="h5 text-white">Moderators</h2>
+      <p class="text-body-secondary">Add trusted members who can review reports and remove content.</p>
+
+      <form action="/groups/<%= group.slug %>/moderators" method="POST" class="mb-4">
+        <label class="form-label text-white">Member username</label>
+        <div class="d-flex gap-2">
+          <input
+            class="form-control bg-dark text-white border-secondary"
+            type="text"
+            name="username"
+            placeholder="Enter username"
+            maxlength="80"
+            required
+          >
+          <button type="submit" class="button-19">Add</button>
+        </div>
+      </form>
+
+      <% if (moderators.length === 0) { %>
+        <p class="mb-0 text-white-50">No moderators assigned yet.</p>
+      <% } else { %>
+        <div class="d-flex flex-column gap-2">
+          <% moderators.forEach(moderator => { %>
+            <div class="d-flex justify-content-between align-items-center border border-secondary rounded p-2">
+              <span>@<%= moderator.username %></span>
+              <form action="/groups/<%= group.slug %>/moderators/<%= moderator.id %>/remove" method="POST" class="owner-form-inline">
+                <button type="submit" class="button-19 owner-button danger">Remove</button>
+              </form>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </section>
   </div>
 </main>
 

@@ -60,6 +60,15 @@ async function init() {
         joined_at TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS group_moderators (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        added_by INTEGER,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE (group_id, user_id)
+      );
+
       CREATE TABLE IF NOT EXISTS content_reports (
         id SERIAL PRIMARY KEY,
         group_id INTEGER NOT NULL,
@@ -85,6 +94,7 @@ async function init() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
       CREATE UNIQUE INDEX IF NOT EXISTS memberships_user_group_idx ON memberships(user_id, group_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS group_moderators_group_user_idx ON group_moderators(group_id, user_id);
       CREATE INDEX IF NOT EXISTS posts_group_id_idx ON posts(group_id);
       CREATE INDEX IF NOT EXISTS posts_created_at_idx ON posts(created_at DESC);
       CREATE INDEX IF NOT EXISTS comments_post_id_idx ON comments(post_id);

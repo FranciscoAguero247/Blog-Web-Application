@@ -154,6 +154,15 @@ async function initializeDatabase() {
       joined_at TIMESTAMP DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS group_moderators (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      added_by INTEGER,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (group_id, user_id)
+    );
+
     CREATE TABLE IF NOT EXISTS content_reports (
       id SERIAL PRIMARY KEY,
       group_id INTEGER NOT NULL,
@@ -179,6 +188,7 @@ async function initializeDatabase() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
     CREATE UNIQUE INDEX IF NOT EXISTS memberships_user_group_idx ON memberships(user_id, group_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS group_moderators_group_user_idx ON group_moderators(group_id, user_id);
     CREATE INDEX IF NOT EXISTS posts_group_id_idx ON posts(group_id);
     CREATE INDEX IF NOT EXISTS posts_created_at_idx ON posts(created_at DESC);
     CREATE INDEX IF NOT EXISTS comments_post_id_idx ON comments(post_id);
@@ -518,6 +528,49 @@ async function getWritableGroupForUser(userId, groupSlug) {
 
 function isGroupCreator(group, userId) {
   return Number(group.created_by) === Number(userId);
+}
+
+async function isGroupModerator(userId, groupId) {
+  const result = await db.query(
+    `SELECT 1 FROM group_moderators WHERE user_id = $1 AND group_id = $2 LIMIT 1`,
+    [userId, groupId]
+  );
+
+  return result.rowCount > 0;
+}
+
+function canModerateGroup({ group, userId, isModerator }) {
+  return isGroupCreator(group, userId) || isModerator;
+}
+
+async function getGroupModerators(groupId) {
+  const result = await db.query(
+    `
+      SELECT users.id, users.username, users.email, group_moderators.created_at
+      FROM group_moderators
+      INNER JOIN users ON users.id = group_moderators.user_id
+      WHERE group_moderators.group_id = $1
+      ORDER BY group_moderators.created_at DESC
+    `,
+    [groupId]
+  );
+
+  return result.rows;
+}
+
+async function getGroupMemberByUsername(groupId, username) {
+  const result = await db.query(
+    `
+      SELECT users.id, users.username
+      FROM memberships
+      INNER JOIN users ON users.id = memberships.user_id
+      WHERE memberships.group_id = $1 AND LOWER(users.username) = LOWER($2)
+      LIMIT 1
+    `,
+    [groupId, username]
+  );
+
+  return result.rows[0] || null;
 }
 
 async function createPostForGroup({ userId, groupSlug, content }) {
@@ -991,7 +1044,8 @@ app.get("/groups/:slug/edit", requireAuth, async (req, res) => {
     return res.redirect(`/groups/${group.slug}`);
   }
 
-  return res.render("group-edit.ejs", { theme: "newpost", group });
+  const moderators = await getGroupModerators(group.id);
+  return res.render("group-edit.ejs", { theme: "newpost", group, moderators });
 });
 
 app.post("/groups/:slug/edit", requireAuth, async (req, res) => {
@@ -1030,6 +1084,83 @@ app.post("/groups/:slug/edit", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/groups/:slug/moderators", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+  const username = req.body.username?.trim();
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect("/");
+  }
+
+  if (!isGroupCreator(group, req.session.user.id)) {
+    setFlash(req, "error", "Only the group creator can manage moderators.");
+    return res.redirect(`/groups/${group.slug}`);
+  }
+
+  if (!username) {
+    setFlash(req, "error", "Enter a username to add as moderator.");
+    return res.redirect(`/groups/${group.slug}/edit`);
+  }
+
+  const member = await getGroupMemberByUsername(group.id, username);
+  if (!member) {
+    setFlash(req, "error", "That user must join the group before becoming a moderator.");
+    return res.redirect(`/groups/${group.slug}/edit`);
+  }
+
+  if (isGroupCreator(group, member.id)) {
+    setFlash(req, "error", "The group creator is already a moderator.");
+    return res.redirect(`/groups/${group.slug}/edit`);
+  }
+
+  const insertResult = await db.query(
+    `
+      INSERT INTO group_moderators (group_id, user_id, added_by)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (group_id, user_id) DO NOTHING
+      RETURNING id
+    `,
+    [group.id, member.id, req.session.user.id]
+  );
+
+  if (insertResult.rowCount === 0) {
+    setFlash(req, "error", `@${member.username} is already a moderator.`);
+    return res.redirect(`/groups/${group.slug}/edit`);
+  }
+
+  setFlash(req, "success", `@${member.username} can now moderate this community.`);
+  return res.redirect(`/groups/${group.slug}/edit`);
+});
+
+app.post("/groups/:slug/moderators/:moderatorId/remove", requireAuth, async (req, res) => {
+  const group = await getGroupBySlug(req.params.slug);
+  const moderatorId = Number(req.params.moderatorId);
+
+  if (!group) {
+    setFlash(req, "error", "That community does not exist.");
+    return res.redirect("/");
+  }
+
+  if (!isGroupCreator(group, req.session.user.id)) {
+    setFlash(req, "error", "Only the group creator can manage moderators.");
+    return res.redirect(`/groups/${group.slug}`);
+  }
+
+  const result = await db.query(
+    `DELETE FROM group_moderators WHERE group_id = $1 AND user_id = $2 RETURNING user_id`,
+    [group.id, moderatorId]
+  );
+
+  if (result.rowCount === 0) {
+    setFlash(req, "error", "That moderator assignment no longer exists.");
+    return res.redirect(`/groups/${group.slug}/edit`);
+  }
+
+  setFlash(req, "success", "Moderator removed.");
+  return res.redirect(`/groups/${group.slug}/edit`);
+});
+
 app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
   const group = await getGroupBySlug(req.params.slug);
 
@@ -1038,8 +1169,9 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     return res.redirect("/");
   }
 
-  if (!isGroupCreator(group, req.session.user.id)) {
-    setFlash(req, "error", "Only the group creator can manage reports.");
+  const groupModerator = await isGroupModerator(req.session.user.id, group.id);
+  if (!canModerateGroup({ group, userId: req.session.user.id, isModerator: groupModerator })) {
+    setFlash(req, "error", "Only moderators can manage reports.");
     return res.redirect(`/groups/${group.slug}`);
   }
 
@@ -1061,8 +1193,9 @@ app.post("/groups/:slug/reports/:reportId", requireAuth, async (req, res) => {
     return res.redirect("/");
   }
 
-  if (!isGroupCreator(group, req.session.user.id)) {
-    setFlash(req, "error", "Only the group creator can manage reports.");
+  const groupModerator = await isGroupModerator(req.session.user.id, group.id);
+  if (!canModerateGroup({ group, userId: req.session.user.id, isModerator: groupModerator })) {
+    setFlash(req, "error", "Only moderators can manage reports.");
     return res.redirect(`/groups/${group.slug}`);
   }
 
@@ -1125,7 +1258,7 @@ app.post("/groups/:slug/posts/:postId/report", requireAuth, async (req, res) => 
     [group.id, req.session.user.id, postId, reason.slice(0, 120), details]
   );
 
-  setFlash(req, "success", "Post reported to the group creator.");
+  setFlash(req, "success", "Post reported to group moderators.");
   return res.redirect(returnPath);
 });
 
@@ -1167,7 +1300,7 @@ app.post("/groups/:slug/comments/:commentId/report", requireAuth, async (req, re
     [group.id, req.session.user.id, commentId, reason.slice(0, 120), details]
   );
 
-  setFlash(req, "success", "Comment reported to the group creator.");
+  setFlash(req, "success", "Comment reported to group moderators.");
   return res.redirect(returnPath);
 });
 
@@ -1182,8 +1315,9 @@ app.post("/groups/:slug/posts/:postId/delete", requireAuth, async (req, res) => 
     return res.redirect(returnPath);
   }
 
-  if (!isGroupCreator(group, req.session.user.id)) {
-    setFlash(req, "error", "Only the group creator can moderate this community.");
+  const groupModerator = await isGroupModerator(req.session.user.id, group.id);
+  if (!canModerateGroup({ group, userId: req.session.user.id, isModerator: groupModerator })) {
+    setFlash(req, "error", "Only moderators can moderate this community.");
     return res.redirect(returnPath);
   }
 
@@ -1210,8 +1344,9 @@ app.post("/groups/:slug/comments/:commentId/delete", requireAuth, async (req, re
     return res.redirect(returnPath);
   }
 
-  if (!isGroupCreator(group, req.session.user.id)) {
-    setFlash(req, "error", "Only the group creator can moderate this community.");
+  const groupModerator = await isGroupModerator(req.session.user.id, group.id);
+  if (!canModerateGroup({ group, userId: req.session.user.id, isModerator: groupModerator })) {
+    setFlash(req, "error", "Only moderators can moderate this community.");
     return res.redirect(returnPath);
   }
 
@@ -1406,20 +1541,25 @@ app.get("/groups/:slug", async (req, res) => {
       group: null,
       posts: [],
       isMember: false,
+      isCreator: false,
+      isModerator: false,
+      canModerate: false,
     });
   }
 
   const requestedPage = Number.parseInt(req.query.page, 10);
   const initialPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const [totalCount, isMember] = await Promise.all([
+  const [totalCount, isMember, isModerator] = await Promise.all([
     getGroupPostCount(group),
     req.session.user ? isGroupMember(req.session.user.id, group.id) : Promise.resolve(false),
+    req.session.user ? isGroupModerator(req.session.user.id, group.id) : Promise.resolve(false),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / GROUP_POSTS_PER_PAGE));
   const currentPage = Math.min(initialPage, totalPages);
   const posts = await getPostsForGroup(group, currentPage);
   const isCreator = req.session.user ? isGroupCreator(group, req.session.user.id) : false;
+  const canModerate = req.session.user ? canModerateGroup({ group, userId: req.session.user.id, isModerator }) : false;
 
   const postIds = posts.map((post) => Number(post.id));
   const commentsByPostId = await getCommentsForPostIds(postIds);
@@ -1435,6 +1575,8 @@ app.get("/groups/:slug", async (req, res) => {
     posts: postsWithComments,
     isMember,
     isCreator,
+    isModerator,
+    canModerate,
     currentPage,
     totalPages,
     hasPreviousPage: currentPage > 1,
