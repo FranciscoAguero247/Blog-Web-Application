@@ -52,6 +52,36 @@
       <% }) %>
     <% } %>
   </div>
+
+  <div class="group-hero text-start mt-5 mb-4">
+    <h2 class="h3">Recent moderator actions</h2>
+    <p>Every moderation decision is logged for accountability.</p>
+  </div>
+
+  <div class="feed-shell">
+    <% if (!moderationActions || moderationActions.length === 0) { %>
+      <article class="feed-card text-start mb-3">
+        <p class="mb-0">No moderation actions yet.</p>
+      </article>
+    <% } else { %>
+      <% moderationActions.forEach(action => { %>
+        <article class="feed-card text-start mb-3">
+          <div class="feed-card-header">
+            <strong>@<%= action.actor_username %></strong>
+            <span><%= action.created_at.toLocaleString() %></span>
+          </div>
+          <p class="mb-2"><strong>Action:</strong> <%= action.action_type %></p>
+          <p class="mb-2"><strong>Target:</strong> <%= action.target_type %><%= action.target_id ? ` #${action.target_id}` : '' %></p>
+          <% if (action.reason) { %>
+            <p class="mb-2"><strong>Reason:</strong> <%= action.reason %></p>
+          <% } %>
+          <% if (action.target_snapshot) { %>
+            <p class="mb-0"><strong>Snapshot:</strong> <%= action.target_snapshot %></p>
+          <% } %>
+        </article>
+      <% }) %>
+    <% } %>
+  </div>
 </section>
 
 <%- include("partials/footer.ejs") %>

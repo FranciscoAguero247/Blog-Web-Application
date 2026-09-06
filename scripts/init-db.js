@@ -87,6 +87,18 @@ async function init() {
         )
       );
 
+      CREATE TABLE IF NOT EXISTS moderation_actions (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER NOT NULL,
+        actor_user_id INTEGER NOT NULL,
+        action_type VARCHAR(40) NOT NULL,
+        target_type VARCHAR(20) NOT NULL,
+        target_id INTEGER,
+        reason TEXT,
+        target_snapshot TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS user_id INTEGER;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_id INTEGER;
       ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_name VARCHAR(100);
@@ -101,6 +113,7 @@ async function init() {
       CREATE INDEX IF NOT EXISTS content_reports_group_status_idx ON content_reports(group_id, status, created_at DESC);
       CREATE INDEX IF NOT EXISTS content_reports_post_idx ON content_reports(post_id);
       CREATE INDEX IF NOT EXISTS content_reports_comment_idx ON content_reports(comment_id);
+      CREATE INDEX IF NOT EXISTS moderation_actions_group_created_idx ON moderation_actions(group_id, created_at DESC);
     `);
 
     console.log('Database initialized successfully.');

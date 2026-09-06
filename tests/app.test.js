@@ -59,6 +59,10 @@ async function cleanup() {
 
   if (createdGroupSlug) {
     await db.query(
+      `DELETE FROM moderation_actions WHERE group_id IN (SELECT id FROM groups WHERE slug = $1)`,
+      [createdGroupSlug]
+    );
+    await db.query(
       `DELETE FROM content_reports WHERE group_id IN (SELECT id FROM groups WHERE slug = $1)`,
       [createdGroupSlug]
     );
@@ -509,6 +513,17 @@ test("MVP community flow works end to end", async (t) => {
     );
     assert.equal(closedReports.rows.length, 2);
     assert.deepEqual(closedReports.rows.map((row) => row.status).sort(), ["dismissed", "resolved"]);
+
+    const moderationActions = await db.query(
+      `
+        SELECT action_type
+        FROM moderation_actions
+        WHERE group_id IN (SELECT id FROM groups WHERE slug = $1)
+          AND action_type = ANY($2::text[])
+      `,
+      [createdGroupSlug, ["moderator_added", "report_resolved", "report_dismissed"]]
+    );
+    assert.equal(moderationActions.rows.length, 3);
 
     createdReportId = 0;
     createdCommentReportId = 0;

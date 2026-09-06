@@ -181,6 +181,18 @@ async function initializeDatabase() {
       )
     );
 
+    CREATE TABLE IF NOT EXISTS moderation_actions (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER NOT NULL,
+      actor_user_id INTEGER NOT NULL,
+      action_type VARCHAR(40) NOT NULL,
+      target_type VARCHAR(20) NOT NULL,
+      target_id INTEGER,
+      reason TEXT,
+      target_snapshot TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
     ALTER TABLE posts ADD COLUMN IF NOT EXISTS user_id INTEGER;
     ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_id INTEGER;
     ALTER TABLE posts ADD COLUMN IF NOT EXISTS group_name VARCHAR(100);
@@ -195,6 +207,7 @@ async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS content_reports_group_status_idx ON content_reports(group_id, status, created_at DESC);
     CREATE INDEX IF NOT EXISTS content_reports_post_idx ON content_reports(post_id);
     CREATE INDEX IF NOT EXISTS content_reports_comment_idx ON content_reports(comment_id);
+    CREATE INDEX IF NOT EXISTS moderation_actions_group_created_idx ON moderation_actions(group_id, created_at DESC);
   `;
 
     await db.query(schemaSql);
@@ -621,6 +634,8 @@ async function getGroupPostForModerator(groupSlug, postId) {
     `
       SELECT
         posts.id,
+        posts.user_id,
+        posts.content,
         posts.group_id,
         COALESCE(groups.slug, '') AS group_slug
       FROM posts
@@ -659,6 +674,8 @@ async function getGroupCommentForModerator(groupSlug, commentId) {
     `
       SELECT
         comments.id,
+        comments.user_id,
+        comments.content,
         comments.post_id,
         COALESCE(groups.slug, '') AS group_slug
       FROM comments
@@ -765,6 +782,58 @@ async function getReportsForGroup(groupId) {
   );
 
   return result.rows;
+}
+
+async function getModerationActionsForGroup(groupId) {
+  const result = await db.query(
+    `
+      SELECT
+        moderation_actions.id,
+        moderation_actions.group_id,
+        moderation_actions.actor_user_id,
+        moderation_actions.action_type,
+        moderation_actions.target_type,
+        moderation_actions.target_id,
+        moderation_actions.reason,
+        moderation_actions.target_snapshot,
+        moderation_actions.created_at,
+        COALESCE(actors.username, 'Unknown') AS actor_username
+      FROM moderation_actions
+      LEFT JOIN users AS actors ON actors.id = moderation_actions.actor_user_id
+      WHERE moderation_actions.group_id = $1
+      ORDER BY moderation_actions.created_at DESC
+      LIMIT 50
+    `,
+    [groupId]
+  );
+
+  return result.rows;
+}
+
+async function logModerationAction({
+  groupId,
+  actorUserId,
+  actionType,
+  targetType,
+  targetId = null,
+  reason = "",
+  targetSnapshot = "",
+}) {
+  await db.query(
+    `
+      INSERT INTO moderation_actions (
+        group_id,
+        actor_user_id,
+        action_type,
+        target_type,
+        target_id,
+        reason,
+        target_snapshot
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `,
+    [groupId, actorUserId, actionType, targetType, targetId, reason, targetSnapshot]
+  );
 }
 
 function getSafeReturnPath(candidatePath, fallbackPath = "/profile") {
@@ -1129,6 +1198,16 @@ app.post("/groups/:slug/moderators", requireAuth, async (req, res) => {
     return res.redirect(`/groups/${group.slug}/edit`);
   }
 
+  await logModerationAction({
+    groupId: group.id,
+    actorUserId: req.session.user.id,
+    actionType: "moderator_added",
+    targetType: "user",
+    targetId: member.id,
+    reason: "Creator assigned moderator",
+    targetSnapshot: `@${member.username}`,
+  });
+
   setFlash(req, "success", `@${member.username} can now moderate this community.`);
   return res.redirect(`/groups/${group.slug}/edit`);
 });
@@ -1157,6 +1236,15 @@ app.post("/groups/:slug/moderators/:moderatorId/remove", requireAuth, async (req
     return res.redirect(`/groups/${group.slug}/edit`);
   }
 
+  await logModerationAction({
+    groupId: group.id,
+    actorUserId: req.session.user.id,
+    actionType: "moderator_removed",
+    targetType: "user",
+    targetId: moderatorId,
+    reason: "Creator removed moderator",
+  });
+
   setFlash(req, "success", "Moderator removed.");
   return res.redirect(`/groups/${group.slug}/edit`);
 });
@@ -1175,11 +1263,15 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     return res.redirect(`/groups/${group.slug}`);
   }
 
-  const reports = await getReportsForGroup(group.id);
+  const [reports, moderationActions] = await Promise.all([
+    getReportsForGroup(group.id),
+    getModerationActionsForGroup(group.id),
+  ]);
   return res.render("group-moderation.ejs", {
     theme: "newpost",
     group,
     reports,
+    moderationActions,
   });
 });
 
@@ -1215,6 +1307,15 @@ app.post("/groups/:slug/reports/:reportId", requireAuth, async (req, res) => {
     setFlash(req, "error", "That report is already closed or no longer exists.");
     return res.redirect(`/groups/${group.slug}/moderation`);
   }
+
+  await logModerationAction({
+    groupId: group.id,
+    actorUserId: req.session.user.id,
+    actionType: action === "dismissed" ? "report_dismissed" : "report_resolved",
+    targetType: "report",
+    targetId: reportId,
+    reason: `Report marked as ${action}`,
+  });
 
   setFlash(req, "success", `Report marked as ${action}.`);
   return res.redirect(`/groups/${group.slug}/moderation`);
@@ -1327,6 +1428,16 @@ app.post("/groups/:slug/posts/:postId/delete", requireAuth, async (req, res) => 
     return res.redirect(returnPath);
   }
 
+  await logModerationAction({
+    groupId: group.id,
+    actorUserId: req.session.user.id,
+    actionType: "post_removed",
+    targetType: "post",
+    targetId: postId,
+    reason: "Removed from group feed",
+    targetSnapshot: moderatedPost.content || "",
+  });
+
   await db.query(`DELETE FROM comments WHERE post_id = $1`, [postId]);
   await db.query(`DELETE FROM posts WHERE id = $1`, [postId]);
   setFlash(req, "success", "Post removed from the community.");
@@ -1355,6 +1466,16 @@ app.post("/groups/:slug/comments/:commentId/delete", requireAuth, async (req, re
     setFlash(req, "error", "The comment no longer exists in this community.");
     return res.redirect(returnPath);
   }
+
+  await logModerationAction({
+    groupId: group.id,
+    actorUserId: req.session.user.id,
+    actionType: "comment_removed",
+    targetType: "comment",
+    targetId: commentId,
+    reason: "Removed from group thread",
+    targetSnapshot: moderatedComment.content || "",
+  });
 
   await db.query(`DELETE FROM comments WHERE id = $1`, [commentId]);
   setFlash(req, "success", "Comment removed from the community.");
