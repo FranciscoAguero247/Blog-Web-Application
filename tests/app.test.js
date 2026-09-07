@@ -746,6 +746,69 @@ test("MVP community flow works end to end", async (t) => {
     );
   });
 
+  await t.test("moderators can filter reports by reporter username", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    const primaryReporter = await db.query(`SELECT id, username FROM users WHERE email = $1 LIMIT 1`, [reportUserEmail]);
+    assert.equal(groupResult.rowCount, 1);
+    assert.equal(primaryReporter.rowCount, 1);
+
+    const secondaryUserEmail = "secondary-reporter@example.com";
+    const secondaryUserName = "secondaryreporter";
+    const secondaryUser = await db.query(
+      `
+        INSERT INTO users (username, email, password_hash)
+        VALUES ($1, $2, $3)
+        RETURNING id, username
+      `,
+      [secondaryUserName, secondaryUserEmail, "placeholder-hash"]
+    );
+
+    await db.query(
+      `
+        INSERT INTO memberships (user_id, group_id)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id, group_id) DO NOTHING
+      `,
+      [secondaryUser.rows[0].id, groupResult.rows[0].id]
+    );
+
+    const otherReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, comment_id, reason, details, status)
+        VALUES ($1, $2, $3, 'reporter filter other user', 'should stay hidden', 'open')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, secondaryUser.rows[0].id, createdCommentId]
+    );
+    const matchingReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status)
+        VALUES ($1, $2, $3, 'reporter filter match', 'should show in filtered report list', 'open')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, primaryReporter.rows[0].id, createdPostId]
+    );
+
+    const filteredPage = await moderatorAgent.get(
+      `/groups/${createdGroupSlug}/moderation?status=open&reporter=${encodeURIComponent(primaryReporter.rows[0].username)}`
+    );
+    assert.equal(filteredPage.status, 200);
+    assert.match(filteredPage.text, /reporter filter match/i);
+    assert.doesNotMatch(filteredPage.text, /reporter filter other user/i);
+
+    await db.query(`DELETE FROM content_reports WHERE id = ANY($1::int[])`, [[otherReport.rows[0].id, matchingReport.rows[0].id]]);
+    await db.query(`DELETE FROM memberships WHERE user_id = $1 AND group_id = $2`, [secondaryUser.rows[0].id, groupResult.rows[0].id]);
+    await db.query(`DELETE FROM users WHERE email = $1`, [secondaryUserEmail]);
+  });
+
   await t.test("moderation page shows community health signals", async () => {
     const moderatorAgent = request.agent(app);
 

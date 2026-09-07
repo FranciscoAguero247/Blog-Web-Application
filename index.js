@@ -749,11 +749,15 @@ async function getOpenReportForTarget({ reporterId, postId = null, commentId = n
   return result.rows[0] || null;
 }
 
-async function getReportsForGroup(groupId, { status = "all", page = 1, pageSize = MODERATION_REPORTS_PER_PAGE, search = "" } = {}) {
+async function getReportsForGroup(
+  groupId,
+  { status = "all", page = 1, pageSize = MODERATION_REPORTS_PER_PAGE, search = "", reporter = "" } = {}
+) {
   const safeStatus = ["all", "open", "resolved", "dismissed"].includes(status) ? status : "all";
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
   const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : MODERATION_REPORTS_PER_PAGE;
   const normalizedSearch = typeof search === "string" ? search.trim() : "";
+  const normalizedReporter = typeof reporter === "string" ? reporter.trim() : "";
 
   const whereClauses = ["content_reports.group_id = $1"];
   const params = [groupId];
@@ -761,6 +765,12 @@ async function getReportsForGroup(groupId, { status = "all", page = 1, pageSize 
   if (safeStatus !== "all") {
     params.push(safeStatus);
     whereClauses.push(`content_reports.status = $${params.length}`);
+  }
+
+  if (normalizedReporter) {
+    const reporterValue = `%${normalizedReporter}%`;
+    params.push(reporterValue);
+    whereClauses.push(`LOWER(COALESCE(reporters.username, '')) LIKE LOWER($${params.length})`);
   }
 
   if (normalizedSearch) {
@@ -1453,6 +1463,7 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     ? requestedStatus
     : "all";
   const requestedSearch = typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const requestedReporter = typeof req.query.reporter === "string" ? req.query.reporter.trim() : "";
   const requestedPage = Number.parseInt(req.query.page, 10);
   const moderationPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
@@ -1475,7 +1486,12 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     : 1;
 
   const [reportPage, actionPage, moderationOverview] = await Promise.all([
-    getReportsForGroup(group.id, { status: statusFilter, page: moderationPage, search: requestedSearch }),
+    getReportsForGroup(group.id, {
+      status: statusFilter,
+      page: moderationPage,
+      search: requestedSearch,
+      reporter: requestedReporter,
+    }),
     getModerationActionsForGroup(group.id, { actionType: actionTypeFilter, page: actionsPage }),
     getModerationOverviewForGroup(group.id),
   ]);
@@ -1499,6 +1515,7 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     hasNextReportPage: reportPage.currentPage < reportPage.totalPages,
     moderationReturnPath,
     reportSearch: requestedSearch,
+    reportReporter: requestedReporter,
     moderationActions: actionPage.moderationActions,
     actionTypeFilter: actionPage.actionTypeFilter,
     currentActionsPage: actionPage.currentPage,
