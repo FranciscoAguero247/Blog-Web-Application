@@ -1043,6 +1043,27 @@ test("MVP community flow works end to end", async (t) => {
     assert.match(filteredPage.text, /status=open.*search=keyword.*reporter=.*dateFrom=2026-08-31.*dateTo=2026-09-08.*actionType=report_resolved/i);
   });
 
+  await t.test("moderation action filters include moderator and comment removal actions", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const actionFilterPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation`);
+    assert.equal(actionFilterPage.status, 200);
+    assert.match(
+      actionFilterPage.text,
+      new RegExp(`href="/groups/${createdGroupSlug}/moderation.*actionType=moderator_removed`, "i")
+    );
+    assert.match(
+      actionFilterPage.text,
+      new RegExp(`href="/groups/${createdGroupSlug}/moderation.*actionType=comment_removed`, "i")
+    );
+  });
+
   await t.test("moderation page surfaces escalation alerts for repeat offenders", async () => {
     const moderatorAgent = request.agent(app);
 

@@ -318,8 +318,14 @@
     <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=report_dismissed" class="button-19 owner-button">
       Report Dismissed<%= actionTypeFilter === 'report_dismissed' ? ' (active)' : '' %>
     </a>
+    <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=moderator_removed" class="button-19 owner-button">
+      Moderator Removed<%= actionTypeFilter === 'moderator_removed' ? ' (active)' : '' %>
+    </a>
     <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=post_removed" class="button-19 owner-button">
       Post Removed<%= actionTypeFilter === 'post_removed' ? ' (active)' : '' %>
+    </a>
+    <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=comment_removed" class="button-19 owner-button">
+      Comment Removed<%= actionTypeFilter === 'comment_removed' ? ' (active)' : '' %>
     </a>
   </div>
 
