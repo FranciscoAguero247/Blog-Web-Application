@@ -89,34 +89,43 @@
       class="form-control"
       style="max-width: 220px;"
     >
+    <label class="d-flex align-items-center gap-2 mb-0">
+      <span class="text-white-50">From</span>
+      <input type="date" name="dateFrom" value="<%= reportDateFrom || '' %>" class="form-control" style="max-width: 170px;">
+    </label>
+    <label class="d-flex align-items-center gap-2 mb-0">
+      <span class="text-white-50">To</span>
+      <input type="date" name="dateTo" value="<%= reportDateTo || '' %>" class="form-control" style="max-width: 170px;">
+    </label>
     <button type="submit" class="button-19 owner-button">Search</button>
-    <% if (reportSearch || reportReporter) { %>
+    <% if (reportSearch || reportReporter || reportDateFrom || reportDateTo) { %>
       <a href="/groups/<%= group.slug %>/moderation<%= reportStatusFilter === 'all' ? '' : '?status=' + reportStatusFilter %>" class="button-19 owner-button">Clear</a>
     <% } %>
   </form>
 
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-    <% const reportFilterQuery = (reportSearch || reportReporter) ? `?${[reportSearch ? `search=${encodeURIComponent(reportSearch)}` : '', reportReporter ? `reporter=${encodeURIComponent(reportReporter)}` : ''].filter(Boolean).join('&')}` : ''; %>
+    <% const reportFilterParams = [reportSearch ? `search=${encodeURIComponent(reportSearch)}` : '', reportReporter ? `reporter=${encodeURIComponent(reportReporter)}` : '', reportDateFrom ? `dateFrom=${encodeURIComponent(reportDateFrom)}` : '', reportDateTo ? `dateTo=${encodeURIComponent(reportDateTo)}` : ''].filter(Boolean); %>
+    <% const reportFilterSuffix = reportFilterParams.length > 0 ? `?${reportFilterParams.join('&')}` : ''; %>
     <a
-      href="/groups/<%= group.slug %>/moderation<%= reportFilterQuery %>"
+      href="/groups/<%= group.slug %>/moderation<%= reportFilterSuffix %>"
       class="button-19 owner-button"
     >
       All<%= reportStatusFilter === 'all' ? ' (active)' : '' %>
     </a>
     <a
-      href="/groups/<%= group.slug %>/moderation?status=open<%= reportSearch || reportReporter ? '&' + [reportSearch ? `search=${encodeURIComponent(reportSearch)}` : '', reportReporter ? `reporter=${encodeURIComponent(reportReporter)}` : ''].filter(Boolean).join('&') : '' %>"
+      href="/groups/<%= group.slug %>/moderation?status=open<%= reportFilterParams.length > 0 ? '&' + reportFilterParams.join('&') : '' %>"
       class="button-19 owner-button"
     >
       Open<%= reportStatusFilter === 'open' ? ' (active)' : '' %>
     </a>
     <a
-      href="/groups/<%= group.slug %>/moderation?status=resolved<%= reportSearch || reportReporter ? '&' + [reportSearch ? `search=${encodeURIComponent(reportSearch)}` : '', reportReporter ? `reporter=${encodeURIComponent(reportReporter)}` : ''].filter(Boolean).join('&') : '' %>"
+      href="/groups/<%= group.slug %>/moderation?status=resolved<%= reportFilterParams.length > 0 ? '&' + reportFilterParams.join('&') : '' %>"
       class="button-19 owner-button"
     >
       Resolved<%= reportStatusFilter === 'resolved' ? ' (active)' : '' %>
     </a>
     <a
-      href="/groups/<%= group.slug %>/moderation?status=dismissed<%= reportSearch || reportReporter ? '&' + [reportSearch ? `search=${encodeURIComponent(reportSearch)}` : '', reportReporter ? `reporter=${encodeURIComponent(reportReporter)}` : ''].filter(Boolean).join('&') : '' %>"
+      href="/groups/<%= group.slug %>/moderation?status=dismissed<%= reportFilterParams.length > 0 ? '&' + reportFilterParams.join('&') : '' %>"
       class="button-19 owner-button"
     >
       Dismissed<%= reportStatusFilter === 'dismissed' ? ' (active)' : '' %>

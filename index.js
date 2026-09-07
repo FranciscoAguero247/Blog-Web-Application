@@ -751,13 +751,23 @@ async function getOpenReportForTarget({ reporterId, postId = null, commentId = n
 
 async function getReportsForGroup(
   groupId,
-  { status = "all", page = 1, pageSize = MODERATION_REPORTS_PER_PAGE, search = "", reporter = "" } = {}
+  {
+    status = "all",
+    page = 1,
+    pageSize = MODERATION_REPORTS_PER_PAGE,
+    search = "",
+    reporter = "",
+    dateFrom = "",
+    dateTo = "",
+  } = {}
 ) {
   const safeStatus = ["all", "open", "resolved", "dismissed"].includes(status) ? status : "all";
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
   const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : MODERATION_REPORTS_PER_PAGE;
   const normalizedSearch = typeof search === "string" ? search.trim() : "";
   const normalizedReporter = typeof reporter === "string" ? reporter.trim() : "";
+  const normalizedDateFrom = typeof dateFrom === "string" ? dateFrom.trim() : "";
+  const normalizedDateTo = typeof dateTo === "string" ? dateTo.trim() : "";
 
   const whereClauses = ["content_reports.group_id = $1"];
   const params = [groupId];
@@ -771,6 +781,16 @@ async function getReportsForGroup(
     const reporterValue = `%${normalizedReporter}%`;
     params.push(reporterValue);
     whereClauses.push(`LOWER(COALESCE(reporters.username, '')) LIKE LOWER($${params.length})`);
+  }
+
+  if (normalizedDateFrom) {
+    params.push(normalizedDateFrom);
+    whereClauses.push(`content_reports.created_at::date >= $${params.length}`);
+  }
+
+  if (normalizedDateTo) {
+    params.push(normalizedDateTo);
+    whereClauses.push(`content_reports.created_at::date <= $${params.length}`);
   }
 
   if (normalizedSearch) {
@@ -1464,6 +1484,8 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     : "all";
   const requestedSearch = typeof req.query.search === "string" ? req.query.search.trim() : "";
   const requestedReporter = typeof req.query.reporter === "string" ? req.query.reporter.trim() : "";
+  const requestedDateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom.trim() : "";
+  const requestedDateTo = typeof req.query.dateTo === "string" ? req.query.dateTo.trim() : "";
   const requestedPage = Number.parseInt(req.query.page, 10);
   const moderationPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
@@ -1491,6 +1513,8 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
       page: moderationPage,
       search: requestedSearch,
       reporter: requestedReporter,
+      dateFrom: requestedDateFrom,
+      dateTo: requestedDateTo,
     }),
     getModerationActionsForGroup(group.id, { actionType: actionTypeFilter, page: actionsPage }),
     getModerationOverviewForGroup(group.id),
@@ -1516,6 +1540,8 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     moderationReturnPath,
     reportSearch: requestedSearch,
     reportReporter: requestedReporter,
+    reportDateFrom: requestedDateFrom,
+    reportDateTo: requestedDateTo,
     moderationActions: actionPage.moderationActions,
     actionTypeFilter: actionPage.actionTypeFilter,
     currentActionsPage: actionPage.currentPage,

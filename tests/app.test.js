@@ -809,6 +809,51 @@ test("MVP community flow works end to end", async (t) => {
     await db.query(`DELETE FROM users WHERE email = $1`, [secondaryUserEmail]);
   });
 
+  await t.test("moderators can filter reports by date range", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    const reporterResult = await db.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [reportUserEmail]);
+    assert.equal(groupResult.rowCount, 1);
+    assert.equal(reporterResult.rowCount, 1);
+
+    const oldReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status, created_at)
+        VALUES ($1, $2, $3, 'old date report', 'should be excluded', 'open', NOW() - INTERVAL '15 days')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId]
+    );
+    const recentReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, comment_id, reason, details, status, created_at)
+        VALUES ($1, $2, $3, 'recent date report', 'should be included', 'open', NOW() - INTERVAL '2 days')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdCommentId]
+    );
+
+    const today = new Date();
+    const fromDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const toDate = new Date(today.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    const filteredPage = await moderatorAgent.get(
+      `/groups/${createdGroupSlug}/moderation?status=open&dateFrom=${fromDate}&dateTo=${toDate}`
+    );
+    assert.equal(filteredPage.status, 200);
+    assert.match(filteredPage.text, /recent date report/i);
+    assert.doesNotMatch(filteredPage.text, /old date report/i);
+
+    await db.query(`DELETE FROM content_reports WHERE id = ANY($1::int[])`, [[oldReport.rows[0].id, recentReport.rows[0].id]]);
+  });
+
   await t.test("moderation page shows community health signals", async () => {
     const moderatorAgent = request.agent(app);
 
