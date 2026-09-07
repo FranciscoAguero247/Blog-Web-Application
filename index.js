@@ -749,10 +749,11 @@ async function getOpenReportForTarget({ reporterId, postId = null, commentId = n
   return result.rows[0] || null;
 }
 
-async function getReportsForGroup(groupId, { status = "all", page = 1, pageSize = MODERATION_REPORTS_PER_PAGE } = {}) {
+async function getReportsForGroup(groupId, { status = "all", page = 1, pageSize = MODERATION_REPORTS_PER_PAGE, search = "" } = {}) {
   const safeStatus = ["all", "open", "resolved", "dismissed"].includes(status) ? status : "all";
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
   const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : MODERATION_REPORTS_PER_PAGE;
+  const normalizedSearch = typeof search === "string" ? search.trim() : "";
 
   const whereClauses = ["content_reports.group_id = $1"];
   const params = [groupId];
@@ -762,11 +763,27 @@ async function getReportsForGroup(groupId, { status = "all", page = 1, pageSize 
     whereClauses.push(`content_reports.status = $${params.length}`);
   }
 
+  if (normalizedSearch) {
+    const searchValue = `%${normalizedSearch}%`;
+    params.push(searchValue, searchValue, searchValue, searchValue);
+    whereClauses.push(
+      `(
+        LOWER(content_reports.reason) LIKE LOWER($${params.length - 3}) OR
+        LOWER(COALESCE(content_reports.details, '')) LIKE LOWER($${params.length - 2}) OR
+        LOWER(COALESCE(reporters.username, '')) LIKE LOWER($${params.length - 1}) OR
+        LOWER(COALESCE(posts.content, comments.content, '')) LIKE LOWER($${params.length})
+      )`
+    );
+  }
+
   const whereSql = whereClauses.join(" AND ");
   const countResult = await db.query(
     `
       SELECT COUNT(*)::int AS total_count
       FROM content_reports
+      LEFT JOIN users AS reporters ON reporters.id = content_reports.reporter_id
+      LEFT JOIN posts ON posts.id = content_reports.post_id
+      LEFT JOIN comments ON comments.id = content_reports.comment_id
       WHERE ${whereSql}
     `,
     params
@@ -1387,6 +1404,7 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
   const statusFilter = ["all", "open", "resolved", "dismissed"].includes(requestedStatus)
     ? requestedStatus
     : "all";
+  const requestedSearch = typeof req.query.search === "string" ? req.query.search.trim() : "";
   const requestedPage = Number.parseInt(req.query.page, 10);
   const moderationPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
@@ -1409,7 +1427,7 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     : 1;
 
   const [reportPage, actionPage, moderationOverview] = await Promise.all([
-    getReportsForGroup(group.id, { status: statusFilter, page: moderationPage }),
+    getReportsForGroup(group.id, { status: statusFilter, page: moderationPage, search: requestedSearch }),
     getModerationActionsForGroup(group.id, { actionType: actionTypeFilter, page: actionsPage }),
     getModerationOverviewForGroup(group.id),
   ]);
@@ -1432,6 +1450,7 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     hasPreviousReportPage: reportPage.currentPage > 1,
     hasNextReportPage: reportPage.currentPage < reportPage.totalPages,
     moderationReturnPath,
+    reportSearch: requestedSearch,
     moderationActions: actionPage.moderationActions,
     actionTypeFilter: actionPage.actionTypeFilter,
     currentActionsPage: actionPage.currentPage,

@@ -704,6 +704,48 @@ test("MVP community flow works end to end", async (t) => {
     );
   });
 
+  await t.test("moderators can search open reports by keyword", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    const reporterResult = await db.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [reportUserEmail]);
+    assert.equal(groupResult.rowCount, 1);
+    assert.equal(reporterResult.rowCount, 1);
+
+    const firstSearchReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status)
+        VALUES ($1, $2, $3, 'search keyword report', 'this should match search', 'open')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId]
+    );
+    const secondSearchReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, comment_id, reason, details, status)
+        VALUES ($1, $2, $3, 'different report', 'should not match', 'open')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdCommentId]
+    );
+
+    const filteredPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?status=open&search=keyword`);
+    assert.equal(filteredPage.status, 200);
+    assert.match(filteredPage.text, /search keyword report/i);
+    assert.doesNotMatch(filteredPage.text, /different report/i);
+
+    await db.query(
+      `DELETE FROM content_reports WHERE id = ANY($1::int[])`,
+      [[firstSearchReport.rows[0].id, secondSearchReport.rows[0].id]]
+    );
+  });
+
   await t.test("creator cannot leave own group", async () => {
     const leaveResponse = await agent.post(`/groups/${createdGroupSlug}/leave`).type("form").send({});
     assert.equal(leaveResponse.status, 302);

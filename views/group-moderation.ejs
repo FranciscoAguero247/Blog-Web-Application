@@ -46,27 +46,45 @@
     </div>
   <% } %>
 
+  <form method="GET" action="/groups/<%= group.slug %>/moderation" class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <% if (reportStatusFilter !== 'all') { %>
+      <input type="hidden" name="status" value="<%= reportStatusFilter %>">
+    <% } %>
+    <input
+      type="search"
+      name="search"
+      value="<%= reportSearch || '' %>"
+      placeholder="Search reports"
+      class="form-control"
+      style="max-width: 260px;"
+    >
+    <button type="submit" class="button-19 owner-button">Search</button>
+    <% if (reportSearch) { %>
+      <a href="/groups/<%= group.slug %>/moderation<%= reportStatusFilter === 'all' ? '' : '?status=' + reportStatusFilter %>" class="button-19 owner-button">Clear</a>
+    <% } %>
+  </form>
+
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <a
-      href="/groups/<%= group.slug %>/moderation"
+      href="/groups/<%= group.slug %>/moderation<%= reportSearch ? '?search=' + encodeURIComponent(reportSearch) : '' %>"
       class="button-19 owner-button"
     >
       All<%= reportStatusFilter === 'all' ? ' (active)' : '' %>
     </a>
     <a
-      href="/groups/<%= group.slug %>/moderation?status=open"
+      href="/groups/<%= group.slug %>/moderation?status=open<%= reportSearch ? '&search=' + encodeURIComponent(reportSearch) : '' %>"
       class="button-19 owner-button"
     >
       Open<%= reportStatusFilter === 'open' ? ' (active)' : '' %>
     </a>
     <a
-      href="/groups/<%= group.slug %>/moderation?status=resolved"
+      href="/groups/<%= group.slug %>/moderation?status=resolved<%= reportSearch ? '&search=' + encodeURIComponent(reportSearch) : '' %>"
       class="button-19 owner-button"
     >
       Resolved<%= reportStatusFilter === 'resolved' ? ' (active)' : '' %>
     </a>
     <a
-      href="/groups/<%= group.slug %>/moderation?status=dismissed"
+      href="/groups/<%= group.slug %>/moderation?status=dismissed<%= reportSearch ? '&search=' + encodeURIComponent(reportSearch) : '' %>"
       class="button-19 owner-button"
     >
       Dismissed<%= reportStatusFilter === 'dismissed' ? ' (active)' : '' %>
