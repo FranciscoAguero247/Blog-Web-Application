@@ -1027,6 +1027,22 @@ test("MVP community flow works end to end", async (t) => {
     await db.query(`DELETE FROM users WHERE email = $1`, [thresholdReporterEmail]);
   });
 
+  await t.test("moderation action filters preserve report search and date filters", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const filteredPage = await moderatorAgent.get(
+      `/groups/${createdGroupSlug}/moderation?status=open&search=keyword&reporter=${encodeURIComponent(reportUsername)}&dateFrom=2026-08-31&dateTo=2026-09-08`
+    );
+    assert.equal(filteredPage.status, 200);
+    assert.match(filteredPage.text, /status=open.*search=keyword.*reporter=.*dateFrom=2026-08-31.*dateTo=2026-09-08.*actionType=report_resolved/i);
+  });
+
   await t.test("moderation page surfaces escalation alerts for repeat offenders", async () => {
     const moderatorAgent = request.agent(app);
 

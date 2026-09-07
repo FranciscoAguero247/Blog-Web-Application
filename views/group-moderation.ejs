@@ -296,22 +296,29 @@
     <p>Every moderation decision is logged for accountability.</p>
   </div>
 
-  <% const reportQueryPrefix = reportStatusFilter === 'all' ? '' : `status=${reportStatusFilter}&`; %>
+  <% const reportFilterPairs = [
+    reportStatusFilter !== 'all' ? `status=${encodeURIComponent(reportStatusFilter)}` : '',
+    reportSearch ? `search=${encodeURIComponent(reportSearch)}` : '',
+    reportReporter ? `reporter=${encodeURIComponent(reportReporter)}` : '',
+    reportDateFrom ? `dateFrom=${encodeURIComponent(reportDateFrom)}` : '',
+    reportDateTo ? `dateTo=${encodeURIComponent(reportDateTo)}` : ''
+  ].filter(Boolean); %>
+  <% const reportFilterQuery = reportFilterPairs.length > 0 ? `${reportFilterPairs.join('&')}&` : ''; %>
   <% const actionQueryPrefix = actionTypeFilter === 'all' ? '' : `actionType=${actionTypeFilter}&`; %>
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-    <a href="/groups/<%= group.slug %>/moderation?<%= reportQueryPrefix %>actionType=all" class="button-19 owner-button">
+    <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=all" class="button-19 owner-button">
       All<%= actionTypeFilter === 'all' ? ' (active)' : '' %>
     </a>
-    <a href="/groups/<%= group.slug %>/moderation?<%= reportQueryPrefix %>actionType=moderator_added" class="button-19 owner-button">
+    <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=moderator_added" class="button-19 owner-button">
       Moderator Added<%= actionTypeFilter === 'moderator_added' ? ' (active)' : '' %>
     </a>
-    <a href="/groups/<%= group.slug %>/moderation?<%= reportQueryPrefix %>actionType=report_resolved" class="button-19 owner-button">
+    <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=report_resolved" class="button-19 owner-button">
       Report Resolved<%= actionTypeFilter === 'report_resolved' ? ' (active)' : '' %>
     </a>
-    <a href="/groups/<%= group.slug %>/moderation?<%= reportQueryPrefix %>actionType=report_dismissed" class="button-19 owner-button">
+    <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=report_dismissed" class="button-19 owner-button">
       Report Dismissed<%= actionTypeFilter === 'report_dismissed' ? ' (active)' : '' %>
     </a>
-    <a href="/groups/<%= group.slug %>/moderation?<%= reportQueryPrefix %>actionType=post_removed" class="button-19 owner-button">
+    <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=post_removed" class="button-19 owner-button">
       Post Removed<%= actionTypeFilter === 'post_removed' ? ' (active)' : '' %>
     </a>
   </div>
