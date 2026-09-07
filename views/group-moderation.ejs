@@ -79,6 +79,30 @@
     </div>
   <% } %>
 
+  <% if (moderationOverview.warningThresholds && moderationOverview.warningThresholds.length > 0) { %>
+    <div class="feed-card text-start mb-4 border border-warning">
+      <p class="mb-2"><strong>Warning threshold</strong></p>
+      <ul class="mb-0 ps-3">
+        <% moderationOverview.warningThresholds.forEach(alert => { %>
+          <li>
+            @<%= alert.label %> has <%= alert.report_count %> open reports
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } %>
+
+  <% if (moderationOverview.reportTrend && moderationOverview.reportTrend.length > 0) { %>
+    <div class="feed-card text-start mb-4">
+      <p class="mb-2"><strong>7-day report trend</strong></p>
+      <ul class="mb-0 ps-3">
+        <% moderationOverview.reportTrend.forEach(day => { %>
+          <li><%= day.label %>: <%= day.total_reports %> total, <%= day.open_reports %> open, <%= day.resolved_reports %> resolved, <%= day.dismissed_reports %> dismissed</li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } %>
+
   <% if (moderationOverview.hotSpots && moderationOverview.hotSpots.length > 0) { %>
     <div class="feed-card text-start mb-4">
       <p class="mb-2"><strong>Hot spots</strong></p>

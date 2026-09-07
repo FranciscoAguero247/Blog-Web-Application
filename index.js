@@ -903,7 +903,15 @@ async function getReportsForGroup(
 }
 
 async function getModerationOverviewForGroup(groupId) {
-  const [countsResult, reasonsResult, healthSignalsResult, escalationResult, leaderboardResult] = await Promise.all([
+  const [
+    countsResult,
+    reasonsResult,
+    healthSignalsResult,
+    escalationResult,
+    leaderboardResult,
+    warningThresholdResult,
+    trendResult,
+  ] = await Promise.all([
     db.query(
       `
         SELECT
@@ -1059,6 +1067,46 @@ async function getModerationOverviewForGroup(groupId) {
         LIMIT 6
       `,
       [groupId]
+    ),
+    db.query(
+      `
+        SELECT
+          reporters.username AS label,
+          COUNT(*)::int AS report_count,
+          'warning_threshold' AS alert_type,
+          'Warning threshold' AS alert_title
+        FROM content_reports
+        LEFT JOIN users AS reporters ON reporters.id = content_reports.reporter_id
+        WHERE content_reports.group_id = $1 AND content_reports.status = 'open'
+        GROUP BY reporters.username
+        HAVING COUNT(*) >= 3
+        ORDER BY report_count DESC, label ASC
+        LIMIT 3
+      `,
+      [groupId]
+    ),
+    db.query(
+      `
+        WITH days AS (
+          SELECT generate_series(
+            NOW() - INTERVAL '6 days',
+            NOW(),
+            INTERVAL '1 day'
+          )::date AS day
+        )
+        SELECT
+          to_char(days.day, 'Mon') AS label,
+          COALESCE(COUNT(content_reports.id), 0)::int AS total_reports,
+          COALESCE(SUM(CASE WHEN content_reports.status = 'open' THEN 1 ELSE 0 END), 0)::int AS open_reports,
+          COALESCE(SUM(CASE WHEN content_reports.status = 'resolved' THEN 1 ELSE 0 END), 0)::int AS resolved_reports,
+          COALESCE(SUM(CASE WHEN content_reports.status = 'dismissed' THEN 1 ELSE 0 END), 0)::int AS dismissed_reports
+        FROM days
+        LEFT JOIN content_reports ON content_reports.group_id = $1
+          AND content_reports.created_at::date = days.day
+        GROUP BY days.day
+        ORDER BY days.day ASC
+      `,
+      [groupId]
     )
   ]);
 
@@ -1081,6 +1129,19 @@ async function getModerationOverviewForGroup(groupId) {
       ...row,
       target_name: row.target_name || "Unknown",
       report_count: Number(row.report_count || 0),
+    })),
+    warningThresholds: warningThresholdResult.rows.map((row) => ({
+      ...row,
+      label: row.label || "Unknown",
+      report_count: Number(row.report_count || 0),
+    })),
+    reportTrend: trendResult.rows.map((row) => ({
+      ...row,
+      label: row.label || "Unknown",
+      total_reports: Number(row.total_reports || 0),
+      open_reports: Number(row.open_reports || 0),
+      resolved_reports: Number(row.resolved_reports || 0),
+      dismissed_reports: Number(row.dismissed_reports || 0),
     })),
   };
 }

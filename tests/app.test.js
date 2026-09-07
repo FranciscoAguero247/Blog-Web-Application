@@ -942,6 +942,91 @@ test("MVP community flow works end to end", async (t) => {
     await db.query(`DELETE FROM content_reports WHERE id = $1`, [followUpReport.rows[0].id]);
   });
 
+  await t.test("moderation page shows a 7-day report trend summary", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    const reporterResult = await db.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [reportUserEmail]);
+    assert.equal(groupResult.rowCount, 1);
+    assert.equal(reporterResult.rowCount, 1);
+
+    const trendReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status, created_at)
+        VALUES ($1, $2, $3, 'trend summary', 'this should appear in the 7-day trend', 'resolved', NOW() - INTERVAL '2 days'),
+               ($1, $2, $3, 'trend summary two', 'this should also appear in the trend', 'open', NOW() - INTERVAL '1 day')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId]
+    );
+
+    const trendPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation`);
+    assert.equal(trendPage.status, 200);
+    assert.match(trendPage.text, /7-day report trend/i);
+    assert.match(trendPage.text, /resolved|open/i);
+
+    await db.query(`DELETE FROM content_reports WHERE id = ANY($1::int[])`, [[trendReport.rows[0].id, trendReport.rows[1].id]]);
+  });
+
+  await t.test("moderation page flags warning thresholds for repeat offenders", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    assert.equal(groupResult.rowCount, 1);
+
+    const thresholdReporterEmail = "threshold-reporter@example.com";
+    const thresholdReporterUsername = "thresholdreporter";
+    const thresholdReporter = await db.query(
+      `
+        INSERT INTO users (username, email, password_hash)
+        VALUES ($1, $2, $3)
+        RETURNING id, username
+      `,
+      [thresholdReporterUsername, thresholdReporterEmail, "placeholder-hash"]
+    );
+
+    const thresholdPost = await db.query(
+      `
+        INSERT INTO posts (user_id, group_id, group_name, content)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id
+      `,
+      [thresholdReporter.rows[0].id, groupResult.rows[0].id, "integration-group", "Threshold watch post"]
+    );
+
+    await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status)
+        VALUES ($1, $2, $3, 'threshold A', 'warning threshold test A', 'open'),
+               ($1, $2, $3, 'threshold B', 'warning threshold test B', 'open'),
+               ($1, $2, $3, 'threshold C', 'warning threshold test C', 'open')
+      `,
+      [groupResult.rows[0].id, thresholdReporter.rows[0].id, thresholdPost.rows[0].id]
+    );
+
+    const thresholdPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation`);
+    assert.equal(thresholdPage.status, 200);
+    assert.match(thresholdPage.text, /Warning threshold/i);
+    assert.match(thresholdPage.text, /@thresholdreporter/i);
+    assert.match(thresholdPage.text, /3 open reports/i);
+
+    await db.query(`DELETE FROM content_reports WHERE group_id = $1 AND post_id = $2 AND reason IN ('threshold A', 'threshold B', 'threshold C')`, [groupResult.rows[0].id, thresholdPost.rows[0].id]);
+    await db.query(`DELETE FROM posts WHERE id = $1`, [thresholdPost.rows[0].id]);
+    await db.query(`DELETE FROM users WHERE email = $1`, [thresholdReporterEmail]);
+  });
+
   await t.test("moderation page surfaces escalation alerts for repeat offenders", async () => {
     const moderatorAgent = request.agent(app);
 
