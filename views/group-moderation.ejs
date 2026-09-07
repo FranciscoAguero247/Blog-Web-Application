@@ -161,9 +161,15 @@
     <% } else { %>
       <form action="/groups/<%= group.slug %>/reports/bulk" method="POST" class="mb-3">
         <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
-        <div class="d-flex flex-wrap gap-2 mb-3">
-          <button type="submit" name="action" value="resolved" class="button-19 owner-button">Resolve selected</button>
-          <button type="submit" name="action" value="dismissed" class="button-19 owner-button danger">Dismiss selected</button>
+        <div class="d-flex flex-column gap-2 mb-3">
+          <label class="w-100">
+            <span class="text-white-50">Bulk follow-up note</span>
+            <textarea name="followUp" rows="2" class="form-control mt-1" placeholder="Optional note for all selected reports"></textarea>
+          </label>
+          <div class="d-flex flex-wrap gap-2">
+            <button type="submit" name="action" value="resolved" class="button-19 owner-button">Resolve selected</button>
+            <button type="submit" name="action" value="dismissed" class="button-19 owner-button danger">Dismiss selected</button>
+          </div>
         </div>
 
         <% reports.forEach(report => { %>
@@ -274,15 +280,25 @@
       </article>
     <% } else { %>
       <% moderationActions.forEach(action => { %>
+        <% const actionLabelMap = {
+          moderator_added: 'Moderator added',
+          moderator_removed: 'Moderator removed',
+          report_resolved: 'Report resolved',
+          report_dismissed: 'Report dismissed',
+          post_removed: 'Post removed',
+          comment_removed: 'Comment removed'
+        }; %>
+        <% const actionLabel = actionLabelMap[action.action_type] || action.action_type.replace(/_/g, ' '); %>
+        <% const isClosureAction = ['report_resolved', 'report_dismissed'].includes(action.action_type); %>
         <article class="feed-card text-start mb-3">
           <div class="feed-card-header">
             <strong>@<%= action.actor_username %></strong>
             <span><%= action.created_at.toLocaleString() %></span>
           </div>
-          <p class="mb-2"><strong>Action:</strong> <%= action.action_type %></p>
+          <p class="mb-2"><strong>Action:</strong> <%= actionLabel %></p>
           <p class="mb-2"><strong>Target:</strong> <%= action.target_type %><%= action.target_id ? ` #${action.target_id}` : '' %></p>
           <% if (action.reason) { %>
-            <p class="mb-2"><strong>Reason:</strong> <%= action.reason %></p>
+            <p class="mb-2"><strong><%= isClosureAction ? 'Follow-up note' : 'Reason' %>:</strong> <%= action.reason %></p>
           <% } %>
           <% if (action.target_snapshot) { %>
             <p class="mb-0"><strong>Snapshot:</strong> <%= action.target_snapshot %></p>
