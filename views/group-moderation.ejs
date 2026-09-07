@@ -58,6 +58,27 @@
     </div>
   </div>
 
+  <% if (moderationOverview.escalationAlerts && moderationOverview.escalationAlerts.length > 0) { %>
+    <div class="feed-card text-start mb-4 border border-warning">
+      <p class="mb-2"><strong>Escalation watch</strong></p>
+      <ul class="mb-0 ps-3">
+        <% moderationOverview.escalationAlerts.forEach(alert => { %>
+          <li>
+            <strong><%= alert.alert_title %>:</strong>
+            <% if (alert.alert_type === 'repeat_reporter') { %>
+              @<%= alert.label %> has <%= alert.report_count %> open reports
+            <% } else { %>
+              @<%= alert.label %> is flagged on <%= alert.report_count %> open reports
+            <% } %>
+            <% if (moderationOverview.topReasons && moderationOverview.topReasons.length > 0) { %>
+              <span class="text-white-50">— repeat report</span>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } %>
+
   <% if (moderationOverview.topReasons && moderationOverview.topReasons.length > 0) { %>
     <div class="feed-card text-start mb-4">
       <p class="mb-2"><strong>Top open report reasons</strong></p>

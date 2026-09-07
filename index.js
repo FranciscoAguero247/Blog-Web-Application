@@ -870,7 +870,7 @@ async function getReportsForGroup(
 }
 
 async function getModerationOverviewForGroup(groupId) {
-  const [countsResult, reasonsResult, healthSignalsResult] = await Promise.all([
+  const [countsResult, reasonsResult, healthSignalsResult, escalationResult] = await Promise.all([
     db.query(
       `
         SELECT
@@ -937,6 +937,44 @@ async function getModerationOverviewForGroup(groupId) {
           ), 0) AS flagged_comments
       `,
       [groupId]
+    ),
+    db.query(
+      `
+        WITH repeat_reporters AS (
+          SELECT
+            reporters.username AS label,
+            COUNT(*)::int AS report_count,
+            'repeat_reporter' AS alert_type,
+            'Repeat reporter' AS alert_title
+          FROM content_reports
+          LEFT JOIN users AS reporters ON reporters.id = content_reports.reporter_id
+          WHERE content_reports.group_id = $1 AND content_reports.status = 'open'
+          GROUP BY reporters.username
+          HAVING COUNT(*) > 1
+          ORDER BY report_count DESC, label ASC
+          LIMIT 3
+        ),
+        flagged_authors AS (
+          SELECT
+            author.username AS label,
+            COUNT(*)::int AS report_count,
+            'flagged_author' AS alert_type,
+            'Flagged author' AS alert_title
+          FROM content_reports
+          LEFT JOIN posts ON posts.id = content_reports.post_id
+          LEFT JOIN comments ON comments.id = content_reports.comment_id
+          LEFT JOIN users AS author ON author.id = COALESCE(posts.user_id, comments.user_id)
+          WHERE content_reports.group_id = $1 AND content_reports.status = 'open'
+          GROUP BY author.username
+          HAVING COUNT(*) > 1
+          ORDER BY report_count DESC, label ASC
+          LIMIT 3
+        )
+        SELECT * FROM repeat_reporters
+        UNION ALL
+        SELECT * FROM flagged_authors
+      `,
+      [groupId]
     )
   ]);
 
@@ -950,6 +988,11 @@ async function getModerationOverviewForGroup(groupId) {
     flaggedAuthors: Number(healthSignalsResult.rows[0]?.flagged_authors || 0),
     flaggedPosts: Number(healthSignalsResult.rows[0]?.flagged_posts || 0),
     flaggedComments: Number(healthSignalsResult.rows[0]?.flagged_comments || 0),
+    escalationAlerts: escalationResult.rows.map((row) => ({
+      ...row,
+      label: row.label || "Unknown",
+      report_count: Number(row.report_count || 0),
+    })),
   };
 }
 
