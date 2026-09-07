@@ -11,6 +11,41 @@
     <p>Review reports from community members and close each case as resolved or dismissed.</p>
   </div>
 
+  <div class="group-hero text-start mt-2 mb-4">
+    <h2 class="h3">Moderator Overview</h2>
+    <p>Monitor the current health of the community and spot cases that need attention.</p>
+  </div>
+
+  <div class="d-flex flex-wrap gap-3 mb-4">
+    <div class="feed-card text-start" style="min-width: 180px;">
+      <p class="mb-1 text-white-50">Open reports</p>
+      <h3 class="mb-0"><%= moderationOverview.openReports %></h3>
+    </div>
+    <div class="feed-card text-start" style="min-width: 180px;">
+      <p class="mb-1 text-white-50">Resolved</p>
+      <h3 class="mb-0"><%= moderationOverview.resolvedReports %></h3>
+    </div>
+    <div class="feed-card text-start" style="min-width: 180px;">
+      <p class="mb-1 text-white-50">Dismissed</p>
+      <h3 class="mb-0"><%= moderationOverview.dismissedReports %></h3>
+    </div>
+    <div class="feed-card text-start" style="min-width: 180px;">
+      <p class="mb-1 text-white-50">Recent reports</p>
+      <h3 class="mb-0"><%= moderationOverview.recentReports %></h3>
+    </div>
+  </div>
+
+  <% if (moderationOverview.topReasons && moderationOverview.topReasons.length > 0) { %>
+    <div class="feed-card text-start mb-4">
+      <p class="mb-2"><strong>Top open report reasons</strong></p>
+      <ul class="mb-0 ps-3">
+        <% moderationOverview.topReasons.forEach(reason => { %>
+          <li><%= reason.reason %> (<%= reason.reason_count %>)</li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } %>
+
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <a
       href="/groups/<%= group.slug %>/moderation"

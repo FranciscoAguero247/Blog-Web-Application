@@ -487,6 +487,8 @@ test("MVP community flow works end to end", async (t) => {
     const moderationPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation`);
     assert.equal(moderationPage.status, 200);
     assert.match(moderationPage.text, /Moderation Queue/);
+    assert.match(moderationPage.text, /Moderator Overview/);
+    assert.match(moderationPage.text, /Open reports/i);
     assert.match(moderationPage.text, /Spam/);
     assert.match(moderationPage.text, /Harassment/);
 

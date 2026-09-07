@@ -822,6 +822,42 @@ async function getReportsForGroup(groupId, { status = "all", page = 1, pageSize 
   };
 }
 
+async function getModerationOverviewForGroup(groupId) {
+  const [countsResult, reasonsResult] = await Promise.all([
+    db.query(
+      `
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'open')::int AS open_reports,
+          COUNT(*) FILTER (WHERE status = 'resolved')::int AS resolved_reports,
+          COUNT(*) FILTER (WHERE status = 'dismissed')::int AS dismissed_reports,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int AS recent_reports
+        FROM content_reports
+        WHERE group_id = $1
+      `,
+      [groupId]
+    ),
+    db.query(
+      `
+        SELECT reason, COUNT(*)::int AS reason_count
+        FROM content_reports
+        WHERE group_id = $1 AND status = 'open'
+        GROUP BY reason
+        ORDER BY reason_count DESC, reason ASC
+        LIMIT 3
+      `,
+      [groupId]
+    )
+  ]);
+
+  return {
+    openReports: Number(countsResult.rows[0]?.open_reports || 0),
+    resolvedReports: Number(countsResult.rows[0]?.resolved_reports || 0),
+    dismissedReports: Number(countsResult.rows[0]?.dismissed_reports || 0),
+    recentReports: Number(countsResult.rows[0]?.recent_reports || 0),
+    topReasons: reasonsResult.rows,
+  };
+}
+
 async function getModerationActionsForGroup(groupId, { actionType = "all", page = 1, pageSize = 10 } = {}) {
   const safeActionType = [
     "all",
@@ -1372,9 +1408,10 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     ? requestedActionsPage
     : 1;
 
-  const [reportPage, actionPage] = await Promise.all([
+  const [reportPage, actionPage, moderationOverview] = await Promise.all([
     getReportsForGroup(group.id, { status: statusFilter, page: moderationPage }),
     getModerationActionsForGroup(group.id, { actionType: actionTypeFilter, page: actionsPage }),
+    getModerationOverviewForGroup(group.id),
   ]);
 
   const querySuffix = reportPage.statusFilter === "all"
@@ -1401,6 +1438,7 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
     totalActionsPages: actionPage.totalPages,
     hasPreviousActionsPage: actionPage.currentPage > 1,
     hasNextActionsPage: actionPage.currentPage < actionPage.totalPages,
+    moderationOverview,
   });
 });
 
