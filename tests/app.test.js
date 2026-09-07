@@ -854,6 +854,46 @@ test("MVP community flow works end to end", async (t) => {
     await db.query(`DELETE FROM content_reports WHERE id = ANY($1::int[])`, [[oldReport.rows[0].id, recentReport.rows[0].id]]);
   });
 
+  await t.test("moderators can add follow-up notes when closing reports", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    const reporterResult = await db.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [reportUserEmail]);
+    assert.equal(groupResult.rowCount, 1);
+    assert.equal(reporterResult.rowCount, 1);
+
+    const followUpReport = await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status)
+        VALUES ($1, $2, $3, 'follow-up note report', 'must retain resolution note', 'open')
+        RETURNING id
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId]
+    );
+
+    const resolveResponse = await moderatorAgent
+      .post(`/groups/${createdGroupSlug}/reports/${followUpReport.rows[0].id}`)
+      .type("form")
+      .send({
+        action: "resolved",
+        followUp: "We reviewed the post and kept it live after the review.",
+        returnTo: `/groups/${createdGroupSlug}/moderation`,
+      });
+    assert.equal(resolveResponse.status, 302);
+
+    const followUpPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?actionType=report_resolved`);
+    assert.equal(followUpPage.status, 200);
+    assert.match(followUpPage.text, /We reviewed the post and kept it live after the review\./i);
+
+    await db.query(`DELETE FROM content_reports WHERE id = $1`, [followUpReport.rows[0].id]);
+  });
+
   await t.test("moderation page shows community health signals", async () => {
     const moderatorAgent = request.agent(app);
 

@@ -173,15 +173,23 @@
             <p class="mb-3"><strong>Reported content:</strong> <%= report.target_content || "(content no longer available)" %></p>
 
             <% if (report.status === "open") { %>
-              <div class="d-flex flex-wrap gap-2">
-                <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
+              <div class="d-flex flex-column gap-2 mt-3">
+                <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline d-flex flex-column align-items-start gap-2">
                   <input type="hidden" name="action" value="resolved">
                   <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
+                  <label class="w-100">
+                    <span class="text-white-50">Follow-up note</span>
+                    <textarea name="followUp" rows="2" class="form-control mt-1" placeholder="Optional note for the moderator record"></textarea>
+                  </label>
                   <button type="submit" class="button-19 owner-button">Mark Resolved</button>
                 </form>
-                <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline">
+                <form action="/groups/<%= group.slug %>/reports/<%= report.id %>" method="POST" class="owner-form-inline d-flex flex-column align-items-start gap-2">
                   <input type="hidden" name="action" value="dismissed">
                   <input type="hidden" name="returnTo" value="<%= moderationReturnPath %>">
+                  <label class="w-100">
+                    <span class="text-white-50">Follow-up note</span>
+                    <textarea name="followUp" rows="2" class="form-control mt-1" placeholder="Optional note for the moderator record"></textarea>
+                  </label>
                   <button type="submit" class="button-19 owner-button danger">Dismiss</button>
                 </form>
               </div>

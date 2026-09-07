@@ -1555,6 +1555,7 @@ app.get("/groups/:slug/moderation", requireAuth, async (req, res) => {
 app.post("/groups/:slug/reports/bulk", requireAuth, async (req, res) => {
   const group = await getGroupBySlug(req.params.slug);
   const action = req.body.action === "dismissed" ? "dismissed" : "resolved";
+  const followUp = typeof req.body.followUp === "string" ? req.body.followUp.trim() : "";
   const returnPath = getSafeReturnPath(req.body.returnTo, group ? `/groups/${group.slug}/moderation` : "/");
 
   if (!group) {
@@ -1596,6 +1597,7 @@ app.post("/groups/:slug/reports/bulk", requireAuth, async (req, res) => {
   );
 
   const updatedIds = result.rows.map((row) => Number(row.id));
+  const actionReason = followUp || `Bulk report marked as ${action}`;
   for (const reportId of updatedIds) {
     await logModerationAction({
       groupId: group.id,
@@ -1603,7 +1605,7 @@ app.post("/groups/:slug/reports/bulk", requireAuth, async (req, res) => {
       actionType: action === "dismissed" ? "report_dismissed" : "report_resolved",
       targetType: "report",
       targetId: reportId,
-      reason: `Bulk report marked as ${action}`,
+      reason: actionReason,
     });
   }
 
@@ -1620,6 +1622,7 @@ app.post("/groups/:slug/reports/:reportId", requireAuth, async (req, res) => {
   const group = await getGroupBySlug(req.params.slug);
   const reportId = Number(req.params.reportId);
   const action = req.body.action === "dismissed" ? "dismissed" : "resolved";
+  const followUp = typeof req.body.followUp === "string" ? req.body.followUp.trim() : "";
   const returnPath = getSafeReturnPath(req.body.returnTo, group ? `/groups/${group.slug}/moderation` : "/");
 
   if (!group) {
@@ -1656,7 +1659,7 @@ app.post("/groups/:slug/reports/:reportId", requireAuth, async (req, res) => {
     actionType: action === "dismissed" ? "report_dismissed" : "report_resolved",
     targetType: "report",
     targetId: reportId,
-    reason: `Report marked as ${action}`,
+    reason: followUp || `Report marked as ${action}`,
   });
 
   setFlash(req, "success", `Report marked as ${action}.`);
