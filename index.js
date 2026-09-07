@@ -840,7 +840,7 @@ async function getReportsForGroup(groupId, { status = "all", page = 1, pageSize 
 }
 
 async function getModerationOverviewForGroup(groupId) {
-  const [countsResult, reasonsResult] = await Promise.all([
+  const [countsResult, reasonsResult, healthSignalsResult] = await Promise.all([
     db.query(
       `
         SELECT
@@ -863,6 +863,50 @@ async function getModerationOverviewForGroup(groupId) {
         LIMIT 3
       `,
       [groupId]
+    ),
+    db.query(
+      `
+        SELECT
+          COALESCE((
+            SELECT COUNT(*)::int
+            FROM (
+              SELECT reporter_id
+              FROM content_reports
+              WHERE group_id = $1 AND status = 'open'
+              GROUP BY reporter_id
+              HAVING COUNT(*) > 1
+            ) repeaters
+          ), 0) AS repeat_reporters,
+          COALESCE((
+            SELECT COUNT(*)::int
+            FROM (
+              SELECT COALESCE(posts.user_id, comments.user_id) AS author_id
+              FROM content_reports
+              LEFT JOIN posts ON posts.id = content_reports.post_id
+              LEFT JOIN comments ON comments.id = content_reports.comment_id
+              WHERE content_reports.group_id = $1 AND content_reports.status = 'open'
+              GROUP BY COALESCE(posts.user_id, comments.user_id)
+              HAVING COUNT(*) > 1
+            ) flagged_authors
+          ), 0) AS flagged_authors,
+          COALESCE((
+            SELECT COUNT(*)::int
+            FROM (
+              SELECT DISTINCT post_id
+              FROM content_reports
+              WHERE group_id = $1 AND status = 'open' AND post_id IS NOT NULL
+            ) flagged_posts
+          ), 0) AS flagged_posts,
+          COALESCE((
+            SELECT COUNT(*)::int
+            FROM (
+              SELECT DISTINCT comment_id
+              FROM content_reports
+              WHERE group_id = $1 AND status = 'open' AND comment_id IS NOT NULL
+            ) flagged_comments
+          ), 0) AS flagged_comments
+      `,
+      [groupId]
     )
   ]);
 
@@ -872,6 +916,10 @@ async function getModerationOverviewForGroup(groupId) {
     dismissedReports: Number(countsResult.rows[0]?.dismissed_reports || 0),
     recentReports: Number(countsResult.rows[0]?.recent_reports || 0),
     topReasons: reasonsResult.rows,
+    repeatReporters: Number(healthSignalsResult.rows[0]?.repeat_reporters || 0),
+    flaggedAuthors: Number(healthSignalsResult.rows[0]?.flagged_authors || 0),
+    flaggedPosts: Number(healthSignalsResult.rows[0]?.flagged_posts || 0),
+    flaggedComments: Number(healthSignalsResult.rows[0]?.flagged_comments || 0),
   };
 }
 

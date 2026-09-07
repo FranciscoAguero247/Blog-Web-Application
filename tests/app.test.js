@@ -746,6 +746,22 @@ test("MVP community flow works end to end", async (t) => {
     );
   });
 
+  await t.test("moderation page shows community health signals", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const healthPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation`);
+    assert.equal(healthPage.status, 200);
+    assert.match(healthPage.text, /Community health signals/i);
+    assert.match(healthPage.text, /Repeat reporters/i);
+    assert.match(healthPage.text, /Flagged authors/i);
+  });
+
   await t.test("creator cannot leave own group", async () => {
     const leaveResponse = await agent.post(`/groups/${createdGroupSlug}/leave`).type("form").send({});
     assert.equal(leaveResponse.status, 302);

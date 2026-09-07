@@ -35,6 +35,29 @@
     </div>
   </div>
 
+  <div class="group-hero text-start mt-2 mb-4">
+    <h2 class="h3">Community health signals</h2>
+  </div>
+
+  <div class="d-flex flex-wrap gap-3 mb-4">
+    <div class="feed-card text-start" style="min-width: 180px;">
+      <p class="mb-1 text-white-50">Repeat reporters</p>
+      <h3 class="mb-0"><%= moderationOverview.repeatReporters %></h3>
+    </div>
+    <div class="feed-card text-start" style="min-width: 180px;">
+      <p class="mb-1 text-white-50">Flagged authors</p>
+      <h3 class="mb-0"><%= moderationOverview.flaggedAuthors %></h3>
+    </div>
+    <div class="feed-card text-start" style="min-width: 180px;">
+      <p class="mb-1 text-white-50">Flagged posts</p>
+      <h3 class="mb-0"><%= moderationOverview.flaggedPosts %></h3>
+    </div>
+    <div class="feed-card text-start" style="min-width: 180px;">
+      <p class="mb-1 text-white-50">Flagged comments</p>
+      <h3 class="mb-0"><%= moderationOverview.flaggedComments %></h3>
+    </div>
+  </div>
+
   <% if (moderationOverview.topReasons && moderationOverview.topReasons.length > 0) { %>
     <div class="feed-card text-start mb-4">
       <p class="mb-2"><strong>Top open report reasons</strong></p>
