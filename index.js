@@ -373,7 +373,7 @@ async function getRecentPosts({ limit = 8, userId = null, joinedOnly = false } =
 }
 
 async function getProfileSummary(userId) {
-  const [groupResult, postResult, commentResult] = await Promise.all([
+  const [groupResult, postResult, commentResult, reportUpdateResult] = await Promise.all([
     db.query(
       `
         SELECT groups.id, groups.name, groups.slug, groups.description, groups.created_by
@@ -418,12 +418,45 @@ async function getProfileSummary(userId) {
       `,
       [userId]
     ),
+    db.query(
+      `
+        SELECT
+          moderation_actions.id,
+          moderation_actions.target_id AS report_id,
+          moderation_actions.action_type,
+          moderation_actions.reason,
+          moderation_actions.created_at,
+          groups.name AS group_name,
+          groups.slug AS group_slug,
+          content_reports.reason AS report_reason,
+          COALESCE(posts.content, comments.content, 'Reported content') AS reported_content
+        FROM moderation_actions
+        INNER JOIN content_reports ON content_reports.id = moderation_actions.target_id
+        LEFT JOIN groups ON groups.id = content_reports.group_id
+        LEFT JOIN posts ON posts.id = content_reports.post_id
+        LEFT JOIN comments ON comments.id = content_reports.comment_id
+        WHERE moderation_actions.target_type = 'report'
+          AND (
+            content_reports.reporter_id = $1
+            OR COALESCE(posts.user_id, comments.user_id) = $1
+          )
+        ORDER BY moderation_actions.created_at DESC
+        LIMIT 10
+      `,
+      [userId]
+    ),
   ]);
 
   return {
     groups: groupResult.rows,
     posts: postResult.rows,
     comments: commentResult.rows,
+    reportUpdates: reportUpdateResult.rows.map((row) => ({
+      ...row,
+      report_id: Number(row.report_id || 0),
+      action_label: row.action_type === "report_resolved" ? "Report resolved" : "Report dismissed",
+      report_status: row.action_type === "report_resolved" ? "resolved" : "dismissed",
+    })),
   };
 }
 
@@ -1243,6 +1276,7 @@ app.get("/profile", requireAuth, async (req, res) => {
     joinedGroups: summary.groups,
     userPosts: summary.posts,
     userComments: summary.comments,
+    reportUpdates: summary.reportUpdates,
   });
 });
 

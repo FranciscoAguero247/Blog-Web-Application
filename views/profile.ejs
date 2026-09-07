@@ -63,6 +63,31 @@
 
       <section class="profile-panel text-start">
         <div class="feed-card-header">
+          <h2 class="mb-0">Report Updates</h2>
+        </div>
+        <% if (reportUpdates.length > 0) { %>
+          <div class="profile-list">
+            <% reportUpdates.forEach(update => { %>
+              <article class="profile-item">
+                <div class="feed-card-header">
+                  <strong><%= update.group_name || 'Community' %></strong>
+                  <% if (update.group_slug) { %>
+                    <a href="/groups/<%= update.group_slug %>" class="profile-link">Open group</a>
+                  <% } %>
+                </div>
+                <p class="mb-1"><strong>Report update</strong> — <%= update.action_label %></p>
+                <p class="mb-2"><%= update.reason %></p>
+                <small class="text-white-50"><%= update.created_at.toLocaleString() %></small>
+              </article>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <p class="mb-0">No report updates yet. Community moderators will share any follow-up here.</p>
+        <% } %>
+      </section>
+
+      <section class="profile-panel text-start">
+        <div class="feed-card-header">
           <h2 class="mb-0">Your Posts</h2>
           <a href="/newpost" class="profile-link">Write a post</a>
         </div>
