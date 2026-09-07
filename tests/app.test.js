@@ -1056,6 +1056,59 @@ test("MVP community flow works end to end", async (t) => {
     assert.match(healthPage.text, /Flagged authors/i);
   });
 
+  await t.test("moderation page shows a hot spots leaderboard", async () => {
+    const moderatorAgent = request.agent(app);
+
+    const moderatorLogin = await moderatorAgent
+      .post("/login")
+      .type("form")
+      .send({ email: moderationUserEmail, password: moderationPassword });
+    assert.equal(moderatorLogin.status, 302);
+
+    const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
+    const reporterResult = await db.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [reportUserEmail]);
+    assert.equal(groupResult.rowCount, 1);
+    assert.equal(reporterResult.rowCount, 1);
+
+    const hotAuthorUser = await db.query(
+      `
+        INSERT INTO users (username, email, password_hash)
+        VALUES ($1, $2, $3)
+        RETURNING id, username
+      `,
+      ["hotspotauthor", "hotspot-author@example.com", "placeholder-hash"]
+    );
+
+    const hotPost = await db.query(
+      `
+        INSERT INTO posts (user_id, group_id, group_name, content)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id
+      `,
+      [hotAuthorUser.rows[0].id, groupResult.rows[0].id, "integration-group", "Hot spot post"]
+    );
+
+    await db.query(
+      `
+        INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status)
+        VALUES ($1, $2, $3, 'hotspot', 'first hot spot', 'open'),
+               ($1, $2, $3, 'hotspot', 'second hot spot', 'open'),
+               ($1, $2, $3, 'hotspot', 'third hot spot', 'open')
+      `,
+      [groupResult.rows[0].id, reporterResult.rows[0].id, hotPost.rows[0].id]
+    );
+
+    const leaderboardPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation`);
+    assert.equal(leaderboardPage.status, 200);
+    assert.match(leaderboardPage.text, /Hot spots/i);
+    assert.match(leaderboardPage.text, /Hot spot post/i);
+    assert.match(leaderboardPage.text, /3 reports/i);
+
+    await db.query(`DELETE FROM content_reports WHERE group_id = $1 AND post_id = $2 AND reason = 'hotspot'`, [groupResult.rows[0].id, hotPost.rows[0].id]);
+    await db.query(`DELETE FROM posts WHERE id = $1`, [hotPost.rows[0].id]);
+    await db.query(`DELETE FROM users WHERE email = $1`, ["hotspot-author@example.com"]);
+  });
+
   await t.test("creator cannot leave own group", async () => {
     const leaveResponse = await agent.post(`/groups/${createdGroupSlug}/leave`).type("form").send({});
     assert.equal(leaveResponse.status, 302);

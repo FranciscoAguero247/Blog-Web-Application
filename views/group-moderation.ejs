@@ -79,6 +79,25 @@
     </div>
   <% } %>
 
+  <% if (moderationOverview.hotSpots && moderationOverview.hotSpots.length > 0) { %>
+    <div class="feed-card text-start mb-4">
+      <p class="mb-2"><strong>Hot spots</strong></p>
+      <ul class="mb-0 ps-3">
+        <% moderationOverview.hotSpots.forEach(item => { %>
+          <li>
+            <% if (item.target_type === 'post') { %>
+              Post: <%= item.target_name %> (<%= item.report_count %> reports)
+            <% } else if (item.target_type === 'comment') { %>
+              Comment: <%= item.target_name %> (<%= item.report_count %> reports)
+            <% } else { %>
+              Reporter: @<%= item.target_name %> (<%= item.report_count %> reports)
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } %>
+
   <% if (moderationOverview.topReasons && moderationOverview.topReasons.length > 0) { %>
     <div class="feed-card text-start mb-4">
       <p class="mb-2"><strong>Top open report reasons</strong></p>

@@ -870,7 +870,7 @@ async function getReportsForGroup(
 }
 
 async function getModerationOverviewForGroup(groupId) {
-  const [countsResult, reasonsResult, healthSignalsResult, escalationResult] = await Promise.all([
+  const [countsResult, reasonsResult, healthSignalsResult, escalationResult, leaderboardResult] = await Promise.all([
     db.query(
       `
         SELECT
@@ -975,6 +975,57 @@ async function getModerationOverviewForGroup(groupId) {
         SELECT * FROM flagged_authors
       `,
       [groupId]
+    ),
+    db.query(
+      `
+        WITH post_hotspots AS (
+          SELECT
+            posts.content AS target_name,
+            COUNT(*)::int AS report_count,
+            'post' AS target_type,
+            posts.id AS target_id
+          FROM content_reports
+          LEFT JOIN posts ON posts.id = content_reports.post_id
+          WHERE content_reports.group_id = $1 AND content_reports.status = 'open' AND posts.id IS NOT NULL
+          GROUP BY posts.id, posts.content
+          ORDER BY report_count DESC, posts.content ASC
+          LIMIT 3
+        ),
+        comment_hotspots AS (
+          SELECT
+            LEFT(comments.content, 80) AS target_name,
+            COUNT(*)::int AS report_count,
+            'comment' AS target_type,
+            comments.id AS target_id
+          FROM content_reports
+          LEFT JOIN comments ON comments.id = content_reports.comment_id
+          WHERE content_reports.group_id = $1 AND content_reports.status = 'open' AND comments.id IS NOT NULL
+          GROUP BY comments.id, comments.content
+          ORDER BY report_count DESC, comments.content ASC
+          LIMIT 3
+        ),
+        reporter_hotspots AS (
+          SELECT
+            users.username AS target_name,
+            COUNT(*)::int AS report_count,
+            'reporter' AS target_type,
+            users.id AS target_id
+          FROM content_reports
+          LEFT JOIN users ON users.id = content_reports.reporter_id
+          WHERE content_reports.group_id = $1 AND content_reports.status = 'open'
+          GROUP BY users.id, users.username
+          ORDER BY report_count DESC, users.username ASC
+          LIMIT 3
+        )
+        SELECT * FROM post_hotspots
+        UNION ALL
+        SELECT * FROM comment_hotspots
+        UNION ALL
+        SELECT * FROM reporter_hotspots
+        ORDER BY report_count DESC, target_name ASC
+        LIMIT 6
+      `,
+      [groupId]
     )
   ]);
 
@@ -991,6 +1042,11 @@ async function getModerationOverviewForGroup(groupId) {
     escalationAlerts: escalationResult.rows.map((row) => ({
       ...row,
       label: row.label || "Unknown",
+      report_count: Number(row.report_count || 0),
+    })),
+    hotSpots: leaderboardResult.rows.map((row) => ({
+      ...row,
+      target_name: row.target_name || "Unknown",
       report_count: Number(row.report_count || 0),
     })),
   };
