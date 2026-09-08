@@ -87,6 +87,16 @@ test("MVP community flow works end to end", async (t) => {
   await initializeDatabase();
   const agent = request.agent(app);
 
+  await t.test("health and readiness endpoints are available", async () => {
+    const healthResponse = await agent.get("/health");
+    assert.equal(healthResponse.status, 200);
+    assert.deepEqual(healthResponse.body, { status: "ok" });
+
+    const readyResponse = await agent.get("/ready");
+    assert.equal(readyResponse.status, 200);
+    assert.deepEqual(readyResponse.body, { status: "ready" });
+  });
+
   await t.test("profile requires login", async () => {
     const response = await agent.get("/profile");
     assert.equal(response.status, 302);
@@ -970,6 +980,7 @@ test("MVP community flow works end to end", async (t) => {
     assert.equal(trendPage.status, 200);
     assert.match(trendPage.text, /7-day report trend/i);
     assert.match(trendPage.text, /resolved|open/i);
+    assert.match(trendPage.text, /(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{2}\/\d{2}/i);
 
     await db.query(`DELETE FROM content_reports WHERE id = ANY($1::int[])`, [[trendReport.rows[0].id, trendReport.rows[1].id]]);
   });

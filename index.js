@@ -1095,7 +1095,7 @@ async function getModerationOverviewForGroup(groupId) {
           )::date AS day
         )
         SELECT
-          to_char(days.day, 'Mon') AS label,
+          to_char(days.day, 'Dy MM/DD') AS label,
           COALESCE(COUNT(content_reports.id), 0)::int AS total_reports,
           COALESCE(SUM(CASE WHEN content_reports.status = 'open' THEN 1 ELSE 0 END), 0)::int AS open_reports,
           COALESCE(SUM(CASE WHEN content_reports.status = 'resolved' THEN 1 ELSE 0 END), 0)::int AS resolved_reports,
@@ -1295,6 +1295,10 @@ app.set("views", path.join(__dirname, "./views"));
 app.use(express.static(__dirname + "/public/"));
 app.use(supabaseSessionMiddleware());
 
+app.get("/health", (req, res) => {
+  return res.status(200).json({ status: "ok" });
+});
+
 app.use((req, res, next) => {
   res.locals.currentUser = req.session.user || null;
   res.locals.flash = req.session.flash || null;
@@ -1312,6 +1316,17 @@ app.use(async (req, res, next) => {
       return res.status(500).send("Database initialization failed.");
     }
     return undefined;
+  }
+});
+
+app.get("/ready", async (req, res) => {
+  try {
+    await initializeDatabase();
+    await db.query("SELECT 1");
+    return res.status(200).json({ status: "ready" });
+  } catch (error) {
+    console.error("Readiness check failed:", error);
+    return res.status(503).json({ status: "not_ready" });
   }
 });
 

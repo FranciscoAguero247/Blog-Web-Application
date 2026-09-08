@@ -13,3 +13,8 @@ Optional Supabase session refresh support is enabled when both values below exis
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
 If Supabase is slow or unavailable, the middleware fails open so core routes still load.
+
+## Deployment checks
+
+- `GET /health` returns a lightweight liveness response.
+- `GET /ready` verifies the app can initialize and query the database.
