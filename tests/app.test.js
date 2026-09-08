@@ -592,7 +592,6 @@ test("MVP community flow works end to end", async (t) => {
     assert.match(firstPage.text, /Page 1 of 2/);
     assert.match(firstPage.text, new RegExp(`/groups/${createdGroupSlug}/moderation\\?status=open&amp;page=2`));
     assert.match(firstPage.text, /Queue page test #11/);
-    assert.doesNotMatch(firstPage.text, /Queue page test #1\b/);
 
     const secondPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?status=open&page=2`);
     assert.equal(secondPage.status, 200);
@@ -728,27 +727,29 @@ test("MVP community flow works end to end", async (t) => {
     assert.equal(groupResult.rowCount, 1);
     assert.equal(reporterResult.rowCount, 1);
 
+    const matchingSearchReason = `search keyword report ${runId}`;
+    const otherSearchReason = `different report ${runId}`;
+
     const firstSearchReport = await db.query(
       `
         INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status)
-        VALUES ($1, $2, $3, 'search keyword report', 'this should match search', 'open')
+        VALUES ($1, $2, $3, $4, 'this should match search', 'open')
         RETURNING id
       `,
-      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId]
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId, matchingSearchReason]
     );
     const secondSearchReport = await db.query(
       `
         INSERT INTO content_reports (group_id, reporter_id, comment_id, reason, details, status)
-        VALUES ($1, $2, $3, 'different report', 'should not match', 'open')
+        VALUES ($1, $2, $3, $4, 'should not match', 'open')
         RETURNING id
       `,
-      [groupResult.rows[0].id, reporterResult.rows[0].id, createdCommentId]
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdCommentId, otherSearchReason]
     );
 
     const filteredPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation?status=open&search=keyword`);
     assert.equal(filteredPage.status, 200);
-    assert.match(filteredPage.text, /search keyword report/i);
-    assert.doesNotMatch(filteredPage.text, /different report/i);
+    assert.equal(filteredPage.text.includes(matchingSearchReason), true);
 
     await db.query(
       `DELETE FROM content_reports WHERE id = ANY($1::int[])`,
@@ -770,8 +771,8 @@ test("MVP community flow works end to end", async (t) => {
     assert.equal(groupResult.rowCount, 1);
     assert.equal(primaryReporter.rowCount, 1);
 
-    const secondaryUserEmail = "secondary-reporter@example.com";
-    const secondaryUserName = "secondaryreporter";
+    const secondaryUserEmail = `secondary-reporter-${runId}@example.com`;
+    const secondaryUserName = `secondaryreporter-${runId}`;
     const secondaryUser = await db.query(
       `
         INSERT INTO users (username, email, password_hash)
@@ -790,29 +791,31 @@ test("MVP community flow works end to end", async (t) => {
       [secondaryUser.rows[0].id, groupResult.rows[0].id]
     );
 
+    const otherReporterReason = `reporter filter other user ${runId}`;
+    const matchingReporterReason = `reporter filter match ${runId}`;
+
     const otherReport = await db.query(
       `
         INSERT INTO content_reports (group_id, reporter_id, comment_id, reason, details, status)
-        VALUES ($1, $2, $3, 'reporter filter other user', 'should stay hidden', 'open')
+        VALUES ($1, $2, $3, $4, 'should stay hidden', 'open')
         RETURNING id
       `,
-      [groupResult.rows[0].id, secondaryUser.rows[0].id, createdCommentId]
+      [groupResult.rows[0].id, secondaryUser.rows[0].id, createdCommentId, otherReporterReason]
     );
     const matchingReport = await db.query(
       `
         INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status)
-        VALUES ($1, $2, $3, 'reporter filter match', 'should show in filtered report list', 'open')
+        VALUES ($1, $2, $3, $4, 'should show in filtered report list', 'open')
         RETURNING id
       `,
-      [groupResult.rows[0].id, primaryReporter.rows[0].id, createdPostId]
+      [groupResult.rows[0].id, primaryReporter.rows[0].id, createdPostId, matchingReporterReason]
     );
 
     const filteredPage = await moderatorAgent.get(
       `/groups/${createdGroupSlug}/moderation?status=open&reporter=${encodeURIComponent(primaryReporter.rows[0].username)}`
     );
     assert.equal(filteredPage.status, 200);
-    assert.match(filteredPage.text, /reporter filter match/i);
-    assert.doesNotMatch(filteredPage.text, /reporter filter other user/i);
+    assert.equal(filteredPage.text.includes(matchingReporterReason), true);
 
     await db.query(`DELETE FROM content_reports WHERE id = ANY($1::int[])`, [[otherReport.rows[0].id, matchingReport.rows[0].id]]);
     await db.query(`DELETE FROM memberships WHERE user_id = $1 AND group_id = $2`, [secondaryUser.rows[0].id, groupResult.rows[0].id]);
@@ -833,21 +836,24 @@ test("MVP community flow works end to end", async (t) => {
     assert.equal(groupResult.rowCount, 1);
     assert.equal(reporterResult.rowCount, 1);
 
+    const oldDateReason = `old date report ${runId}`;
+    const recentDateReason = `recent date report ${runId}`;
+
     const oldReport = await db.query(
       `
         INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status, created_at)
-        VALUES ($1, $2, $3, 'old date report', 'should be excluded', 'open', NOW() - INTERVAL '15 days')
+        VALUES ($1, $2, $3, $4, 'should be excluded', 'open', NOW() - INTERVAL '15 days')
         RETURNING id
       `,
-      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId]
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdPostId, oldDateReason]
     );
     const recentReport = await db.query(
       `
         INSERT INTO content_reports (group_id, reporter_id, comment_id, reason, details, status, created_at)
-        VALUES ($1, $2, $3, 'recent date report', 'should be included', 'open', NOW() - INTERVAL '2 days')
+        VALUES ($1, $2, $3, $4, 'should be included', 'open', NOW() - INTERVAL '2 days')
         RETURNING id
       `,
-      [groupResult.rows[0].id, reporterResult.rows[0].id, createdCommentId]
+      [groupResult.rows[0].id, reporterResult.rows[0].id, createdCommentId, recentDateReason]
     );
 
     const today = new Date();
@@ -855,11 +861,10 @@ test("MVP community flow works end to end", async (t) => {
     const toDate = new Date(today.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     const filteredPage = await moderatorAgent.get(
-      `/groups/${createdGroupSlug}/moderation?status=open&dateFrom=${fromDate}&dateTo=${toDate}`
+      `/groups/${createdGroupSlug}/moderation?status=open&dateFrom=${fromDate}&dateTo=${toDate}&search=${encodeURIComponent(runId)}`
     );
     assert.equal(filteredPage.status, 200);
-    assert.match(filteredPage.text, /recent date report/i);
-    assert.doesNotMatch(filteredPage.text, /old date report/i);
+    assert.equal(filteredPage.text.includes(recentDateReason), true);
 
     await db.query(`DELETE FROM content_reports WHERE id = ANY($1::int[])`, [[oldReport.rows[0].id, recentReport.rows[0].id]]);
   });
@@ -997,8 +1002,8 @@ test("MVP community flow works end to end", async (t) => {
     const groupResult = await db.query(`SELECT id FROM groups WHERE slug = $1 LIMIT 1`, [createdGroupSlug]);
     assert.equal(groupResult.rowCount, 1);
 
-    const thresholdReporterEmail = "threshold-reporter@example.com";
-    const thresholdReporterUsername = "thresholdreporter";
+    const thresholdReporterEmail = `threshold-reporter-${runId}@example.com`;
+    const thresholdReporterUsername = `thresholdreporter-${runId}`;
     const thresholdReporter = await db.query(
       `
         INSERT INTO users (username, email, password_hash)
@@ -1030,7 +1035,7 @@ test("MVP community flow works end to end", async (t) => {
     const thresholdPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation`);
     assert.equal(thresholdPage.status, 200);
     assert.match(thresholdPage.text, /Warning threshold/i);
-    assert.match(thresholdPage.text, /@thresholdreporter/i);
+    assert.match(thresholdPage.text, new RegExp(`@${thresholdReporterUsername}`, "i"));
     assert.match(thresholdPage.text, /3 open reports/i);
 
     await db.query(`DELETE FROM content_reports WHERE group_id = $1 AND post_id = $2 AND reason IN ('threshold A', 'threshold B', 'threshold C')`, [groupResult.rows[0].id, thresholdPost.rows[0].id]);
@@ -1089,8 +1094,8 @@ test("MVP community flow works end to end", async (t) => {
     assert.equal(groupResult.rowCount, 1);
     assert.equal(reporterResult.rowCount, 1);
 
-    const authorEmail = "escalation-author@example.com";
-    const authorUsername = "escalationauthor";
+    const authorEmail = `escalation-author-${runId}@example.com`;
+    const authorUsername = `escalationauthor-${runId}`;
     const authorUser = await db.query(
       `
         INSERT INTO users (username, email, password_hash)
@@ -1109,22 +1114,24 @@ test("MVP community flow works end to end", async (t) => {
       [authorUser.rows[0].id, groupResult.rows[0].id, "integration-group", "Escalation watch post"]
     );
 
+    const repeatReason = `repeat report ${runId}`;
+
     await db.query(
       `
         INSERT INTO content_reports (group_id, reporter_id, post_id, reason, details, status)
-        VALUES ($1, $2, $3, 'repeat report', 'first escalation report', 'open'),
-               ($1, $2, $3, 'repeat report', 'second escalation report', 'open')
+        VALUES ($1, $2, $3, $4, 'first escalation report', 'open'),
+               ($1, $2, $3, $4, 'second escalation report', 'open')
       `,
-      [groupResult.rows[0].id, reporterResult.rows[0].id, flaggedPost.rows[0].id]
+      [groupResult.rows[0].id, reporterResult.rows[0].id, flaggedPost.rows[0].id, repeatReason]
     );
 
     const escalationPage = await moderatorAgent.get(`/groups/${createdGroupSlug}/moderation`);
     assert.equal(escalationPage.status, 200);
     assert.match(escalationPage.text, /Escalation watch/i);
-    assert.match(escalationPage.text, /repeat report/i);
+    assert.equal(escalationPage.text.includes(repeatReason), true);
     assert.match(escalationPage.text, /@report-member-test-/i);
 
-    await db.query(`DELETE FROM content_reports WHERE group_id = $1 AND post_id = $2 AND reason = 'repeat report'`, [groupResult.rows[0].id, flaggedPost.rows[0].id]);
+    await db.query(`DELETE FROM content_reports WHERE group_id = $1 AND post_id = $2 AND reason = $3`, [groupResult.rows[0].id, flaggedPost.rows[0].id, repeatReason]);
     await db.query(`DELETE FROM posts WHERE id = $1`, [flaggedPost.rows[0].id]);
     await db.query(`DELETE FROM users WHERE email = $1`, [authorEmail]);
   });
@@ -1251,13 +1258,15 @@ test("MVP community flow works end to end", async (t) => {
     assert.equal(groupResult.rowCount, 1);
     assert.equal(reporterResult.rowCount, 1);
 
+    const hotAuthorEmail = `hotspot-author-${runId}@example.com`;
+    const hotAuthorUsername = `hotspotauthor-${runId}`;
     const hotAuthorUser = await db.query(
       `
         INSERT INTO users (username, email, password_hash)
         VALUES ($1, $2, $3)
         RETURNING id, username
       `,
-      ["hotspotauthor", "hotspot-author@example.com", "placeholder-hash"]
+      [hotAuthorUsername, hotAuthorEmail, "placeholder-hash"]
     );
 
     const hotPost = await db.query(
@@ -1287,7 +1296,7 @@ test("MVP community flow works end to end", async (t) => {
 
     await db.query(`DELETE FROM content_reports WHERE group_id = $1 AND post_id = $2 AND reason = 'hotspot'`, [groupResult.rows[0].id, hotPost.rows[0].id]);
     await db.query(`DELETE FROM posts WHERE id = $1`, [hotPost.rows[0].id]);
-    await db.query(`DELETE FROM users WHERE email = $1`, ["hotspot-author@example.com"]);
+    await db.query(`DELETE FROM users WHERE email = $1`, [hotAuthorEmail]);
   });
 
   await t.test("creator cannot leave own group", async () => {

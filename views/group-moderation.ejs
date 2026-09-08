@@ -304,6 +304,7 @@
     reportDateTo ? `dateTo=${encodeURIComponent(reportDateTo)}` : ''
   ].filter(Boolean); %>
   <% const reportFilterQuery = reportFilterPairs.length > 0 ? `${reportFilterPairs.join('&')}&` : ''; %>
+  <% const actionQueryPrefix = actionTypeFilter === 'all' ? '' : `actionType=${actionTypeFilter}&`; %>
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=all" class="button-19 owner-button">
       All<%= actionTypeFilter === 'all' ? ' (active)' : '' %>
@@ -367,7 +368,7 @@
     <div class="d-flex align-items-center justify-content-between mt-3 mb-4">
       <div>
         <% if (hasPreviousActionsPage) { %>
-          <a href="/groups/<%= group.slug %>/moderation?<%= reportQueryPrefix %><%= actionQueryPrefix %>actionsPage=<%= currentActionsPage - 1 %>" class="button-19 owner-button">
+          <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %><%= actionQueryPrefix %>actionsPage=<%= currentActionsPage - 1 %>" class="button-19 owner-button">
             Previous
           </a>
         <% } %>
@@ -375,7 +376,7 @@
       <p class="mb-0">Action page <%= currentActionsPage %> of <%= totalActionsPages %></p>
       <div>
         <% if (hasNextActionsPage) { %>
-          <a href="/groups/<%= group.slug %>/moderation?<%= reportQueryPrefix %><%= actionQueryPrefix %>actionsPage=<%= currentActionsPage + 1 %>" class="button-19 owner-button">
+          <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %><%= actionQueryPrefix %>actionsPage=<%= currentActionsPage + 1 %>" class="button-19 owner-button">
             Next
           </a>
         <% } %>

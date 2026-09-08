@@ -238,7 +238,7 @@ main{
   
 */
 .internal-blog-post, .external-blog-post {
-  width: 1300px;
+  width: min(100%, 1300px);
   position: relative;
   margin: 50px auto;
   clear: left;
@@ -252,7 +252,7 @@ main{
 }
 
 .center-div-block {
-  width: 1300px;
+  width: min(100%, 1300px);
   position: relative;
   margin: 0 auto;
   clear: left;
@@ -708,7 +708,7 @@ main{
 }
 
 .post-div-block{
-  width: 1300px;
+  width: min(100%, 1300px);
   position: relative;
   margin: 0 auto;
   clear: left;
@@ -740,7 +740,7 @@ main{
   bottom: 10;
 }
 .external-blog-post{
-  width: 1300px;
+  width: min(100%, 1300px);
   background: blue;
   position: relative;
   margin: 0 auto;
@@ -810,7 +810,7 @@ main{
   text-align: center;
 }
 .post-div-block{
-  width: 1300px;
+  width: min(100%, 1300px);
   position: relative;
   margin: 0 auto;
   clear: left;
@@ -869,7 +869,7 @@ main{
 }
 
 .post-div-block{
-  width: 1300px;
+  width: min(100%, 1300px);
   position: relative;
   margin: 0 auto;
   clear: left;
@@ -1073,7 +1073,8 @@ main{
 .dropdown:hover .dropdown-content { display: block; }
 
 input {
-    min-width: 12em;
+  min-width: 0;
+  max-width: 100%;
     color: #2e3750;
     padding: 0 .325em;
 }
@@ -1185,13 +1186,13 @@ strong:hover {
 @media (max-width: 480px) {
     #background-video { display: none; }
     body { background: url(/public/images/Neon\ oval\ phone\ wallpaper.jpg) cover; }
-    main { margin: 250%; }
+  main { margin: 0; }
 }
 
 /* Tablets */
 @media (min-width: 768px) and (max-width: 1024px) {
     #background-video { display: none; }
-    main { margin: 85%; }
+  main { margin: 0; }
 }
 
 /* Desktop Polish */
