@@ -304,7 +304,6 @@
     reportDateTo ? `dateTo=${encodeURIComponent(reportDateTo)}` : ''
   ].filter(Boolean); %>
   <% const reportFilterQuery = reportFilterPairs.length > 0 ? `${reportFilterPairs.join('&')}&` : ''; %>
-  <% const actionQueryPrefix = actionTypeFilter === 'all' ? '' : `actionType=${actionTypeFilter}&`; %>
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <a href="/groups/<%= group.slug %>/moderation?<%= reportFilterQuery %>actionType=all" class="button-19 owner-button">
       All<%= actionTypeFilter === 'all' ? ' (active)' : '' %>

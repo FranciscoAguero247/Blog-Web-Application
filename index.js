@@ -1307,6 +1307,10 @@ app.use((req, res, next) => {
 });
 
 app.use(async (req, res, next) => {
+  if (req.path === "/health" || req.path === "/ready") {
+    return next();
+  }
+
   try {
     await initializeDatabase();
     return next();
