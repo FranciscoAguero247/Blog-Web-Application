@@ -5,51 +5,82 @@
 </a>
 
 <main class="container">
-    <div class="post-container text-start"> <div class="row align-items-center">
-            <div class="col-md-4 text-center">
+    <div class="post-container text-start">
+        <div class="row align-items-center g-4">
+            <div class="col-md-3 text-center">
                 <div class="profile-circle mx-auto">
-                    <i class="fa-solid fa-user-secret fa-5x"></i>
+                    <i class="fa-solid fa-people-group fa-4x"></i>
                 </div>
             </div>
-            <div class="col-md-8">
-                <h1 class="display-4">The Director</h1>
-                <p class="lead text-cyan">"Curating the best of Gotham, the Galaxy, and the Grid."</p>
-                <p class="text-white-50">
-                    Welcome to my digital workshop. I built 
-                    <a href="https://movie-motion-g-project-react-d14ywl6c0.vercel.app/" target="_blank">
-                        <strong>Movie Motion G</strong>
-                    </a>
-
-                     as a hub for enthusiasts who live at the intersection of cinematic storytelling and high-performance engineering.
+            <div class="col-md-9">
+                <h1 class="display-5 mb-2">About Common Ground</h1>
+                <p class="lead text-cyan mb-2">Community publishing with accountable moderation.</p>
+                <p class="text-white-50 mb-0">
+                    Common Ground is an Express + EJS platform where members create groups, publish posts,
+                    comment, report harmful content, and manage moderation decisions with a full audit trail.
                 </p>
             </div>
         </div>
 
         <hr class="my-5 border-secondary">
 
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="about-card p-3">
-                    <i class="fa-solid fa-batman text-muted mb-2"></i>
-                    <h5>Gotham Records</h5>
-                    <p class="small">Dedicated to the noir aesthetics and tactical brilliance of the Dark Knight.</p>
+        <h2 class="h4 mb-3">What the platform includes</h2>
+        <div class="row g-4 mb-2">
+            <div class="col-md-6">
+                <div class="about-card p-3 h-100">
+                    <i class="fa-solid fa-users text-cyan mb-2"></i>
+                    <h5>Community foundations</h5>
+                    <p class="small mb-0">Signup/login, user profiles, group creation, membership controls, and role-aware posting/commenting.</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="about-card p-3">
-                    <i class="fa-solid fa-jedi text-cyan mb-2"></i>
-                    <h5>Galactic Archives</h5>
-                    <p class="small">Exploring the lore and legendary world-building of the Star Wars universe.</p>
+            <div class="col-md-6">
+                <div class="about-card p-3 h-100">
+                    <i class="fa-solid fa-shield-halved text-cyan mb-2"></i>
+                    <h5>Moderation queue</h5>
+                    <p class="small mb-0">Report intake for posts/comments, open/resolved/dismissed workflows, single and bulk actions, and follow-up notes.</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="about-card p-3">
-                    <i class="fa-solid fa-gauge-high text-danger mb-2"></i>
-                    <h5>Performance Lab</h5>
-                    <p class="small">Analyzing the machines that push limits, from JDM classics to modern supercars.</p>
+            <div class="col-md-6">
+                <div class="about-card p-3 h-100">
+                    <i class="fa-solid fa-filter text-cyan mb-2"></i>
+                    <h5>Operational filtering</h5>
+                    <p class="small mb-0">Queue search and filtering by status, reporter, and date range, with preserved state across moderation action tabs.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="about-card p-3 h-100">
+                    <i class="fa-solid fa-chart-line text-cyan mb-2"></i>
+                    <h5>Moderator insights</h5>
+                    <p class="small mb-0">Community health signals, escalation watch, warning thresholds, 7-day trend summaries, and hot-spot leaderboards.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="about-card p-3 h-100">
+                    <i class="fa-solid fa-clipboard-list text-cyan mb-2"></i>
+                    <h5>Auditability</h5>
+                    <p class="small mb-0">Every moderation decision is logged with actor, target, reason/follow-up note, and timestamp for accountability.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="about-card p-3 h-100">
+                    <i class="fa-solid fa-server text-cyan mb-2"></i>
+                    <h5>Deployment readiness</h5>
+                    <p class="small mb-0">Database bootstrap on startup, session hardening, plus <code>/health</code> and <code>/ready</code> endpoints for liveness/readiness checks.</p>
                 </div>
             </div>
         </div>
+
+        <hr class="my-5 border-secondary">
+
+        <h2 class="h4 mb-3">Current direction</h2>
+        <p class="text-white-50 mb-2">
+            The project is in a stable hardening phase with end-to-end tests covering core auth,
+            community flows, moderation controls, and dashboard-level moderation analytics.
+        </p>
+        <p class="text-white-50 mb-0">
+            Next improvements focus on product polish and maintainability while preserving strict,
+            test-backed delivery.
+        </p>
     </div>
 </main>
 
